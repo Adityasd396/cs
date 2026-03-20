@@ -618,24 +618,163 @@
         .modal-social-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
 
         /* ── Responsive ───────────────────────────────────────── */
+
+        /* Tablet ------------------------------------------------- */
         @media (max-width: 1024px) {
             .features-grid      { grid-template-columns: repeat(2,1fr); }
-            .footer-grid        { grid-template-columns: 1fr 1fr; }
+            .footer-grid        { grid-template-columns: 1fr 1fr; gap: 32px; }
             .earnings-layout    { grid-template-columns: 1fr; gap: 48px; }
+            .hero h1            { font-size: 56px; }
+            .section-title      { font-size: 40px; }
         }
+
+        /* Mobile nav hamburger ----------------------------------- */
+        .nav-desktop  { display: flex; gap: 28px; align-items: center; }
+        .hamburger {
+            display: none;
+            background: transparent;
+            border: 1.5px solid rgba(255,255,255,.3);
+            border-radius: 10px;
+            padding: 8px 10px;
+            cursor: pointer;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .hamburger span {
+            display: block;
+            width: 20px;
+            height: 2px;
+            background: white;
+            border-radius: 9999px;
+            transition: all .3s;
+        }
+        .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .hamburger.open span:nth-child(2) { opacity: 0; }
+        .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        .mobile-nav-drawer {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: #0f172a;
+            border-bottom: 1px solid rgba(255,255,255,.1);
+            padding: 80px 24px 32px;
+            z-index: 999;
+            flex-direction: column;
+            gap: 4px;
+            animation: slideDown .25s ease;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .mobile-nav-drawer.open { display: flex; }
+        .mobile-nav-link {
+            color: rgba(255,255,255,.8);
+            text-decoration: none;
+            font-size: 17px;
+            font-weight: 600;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255,255,255,.07);
+            display: block;
+        }
+        .mobile-nav-link:last-of-type { border-bottom: none; }
+        .mobile-nav-btns { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+        .mobile-nav-btns button { flex: 1; min-width: 120px; }
+
+        /* Mobile ------------------------------------------------- */
         @media (max-width: 768px) {
-            .hero h1            { font-size: 44px; }
-            .section-title      { font-size: 36px; }
-            .hero-stats         { flex-direction: column; }
-            .hero-stat          { border-right: none; border-bottom: 1px solid rgba(255,255,255,.1); }
+            /* header */
+            .nav-desktop    { display: none !important; }
+            .cta-buttons    { display: none !important; }
+            .hamburger      { display: flex; }
+            .landing-header { padding: 12px 0; }
+
+            /* container padding tighter */
+            .container { padding: 0 18px; }
+
+            /* hero */
+            .hero           { padding: 72px 0 56px; }
+            .hero h1        { font-size: 36px; letter-spacing: -0.025em; }
+            .hero > .container > p { font-size: 16px; margin-bottom: 32px; }
+            .hero-badge     { font-size: 11px; padding: 6px 14px; }
+            .hero-cta       { flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 40px; }
+            .btn-hero-primary, .btn-hero-ghost { width: 100%; text-align: center; justify-content: center; font-size: 15px; padding: 14px 20px; }
+            .hero-stats     { flex-direction: row; flex-wrap: wrap; border-radius: 16px; max-width: 100%; }
+            .hero-stat      { flex: 1 1 calc(50% - 1px); min-width: 0; border-right: 1px solid rgba(255,255,255,.1); border-bottom: 1px solid rgba(255,255,255,.1); }
+            .hero-stat:nth-child(2n) { border-right: none; }
+            .hero-stat:nth-child(3), .hero-stat:nth-child(4) { border-bottom: none; }
+            .hero-stat-value { font-size: 22px; }
+            .hero-stat-label { font-size: 10px; }
+            .hero-stat      { padding: 16px 10px; }
+
+            /* sections */
+            .section        { padding: 64px 0; }
+            .features-section, .testimonials-section { padding: 64px 0; }
+            .earnings-section { padding: 64px 0; }
+            .section-title  { font-size: 30px; line-height: 1.15; }
+            .section-sub    { font-size: 15px; margin-bottom: 40px; }
+
+            /* steps */
+            .steps-grid     { grid-template-columns: 1fr; gap: 16px; }
+            .step-card      { padding: 28px 24px; }
+            .step-number    { font-size: 40px; margin-bottom: 8px; }
+
+            /* features */
+            .features-grid  { grid-template-columns: 1fr; gap: 16px; }
+            .feature-card   { padding: 28px 24px; }
+            .feature-icon   { width: 52px; height: 52px; font-size: 22px; border-radius: 14px; }
+
+            /* earnings */
+            .earnings-layout { gap: 32px; }
+            .earnings-left h2 { font-size: 30px; }
+            .cpm-table thead th, .cpm-table tbody td { padding: 12px 12px; font-size: 13px; }
+            .upi-block      { padding: 24px 20px; }
+            .upi-logos      { gap: 8px; }
+            .upi-pill       { font-size: 11px; padding: 6px 12px; }
+            .calc-card      { padding: 28px 20px; }
+            .calc-result-value { font-size: 36px; }
+
+            /* testimonials */
+            .testimonials-grid { grid-template-columns: 1fr; gap: 16px; }
+            .testi-card     { padding: 24px 20px; }
+
+            /* cta banner */
+            .cta-banner     { padding: 64px 0; }
+            .cta-banner h2  { font-size: 30px; }
+            .cta-banner p   { font-size: 15px; margin-bottom: 32px; }
+            .cta-banner-btns { flex-direction: column; align-items: stretch; gap: 10px; }
+            .cta-banner-btns button { width: 100%; }
+
+            /* footer */
+            .site-footer    { padding: 48px 0 24px; }
+            .footer-grid    { grid-template-columns: 1fr; gap: 28px; }
+            .footer-bottom-row { flex-direction: column; gap: 8px; text-align: center; font-size: 12px; }
+
+            /* modal */
+            .modal-overlay  { align-items: flex-end; padding: 0; }
+            .modal-box {
+                padding: 36px 24px 40px;
+                border-radius: 24px 24px 0 0;
+                max-width: 100%;
+                transform: translateY(40px);
+                max-height: 92vh;
+                overflow-y: auto;
+            }
+            .modal-overlay.open .modal-box { transform: translateY(0); }
+            .modal-title    { font-size: 24px; }
+            .modal-logo     { font-size: 36px; margin-bottom: 8px; }
+        }
+
+        /* Very small phones -------------------------------------- */
+        @media (max-width: 375px) {
+            .hero h1        { font-size: 30px; }
+            .section-title  { font-size: 26px; }
+            .hero-stats     { flex-direction: column; }
+            .hero-stat      { border-right: none !important; border-bottom: 1px solid rgba(255,255,255,.1); }
             .hero-stat:last-child { border-bottom: none; }
-            .features-grid      { grid-template-columns: 1fr; }
-            .testimonials-grid  { grid-template-columns: 1fr; }
-            .footer-grid        { grid-template-columns: 1fr; }
-            .cta-banner h2      { font-size: 36px; }
-            .footer-bottom-row  { flex-direction: column; gap: 12px; text-align: center; }
-            .steps-grid         { grid-template-columns: 1fr; }
-            .modal-box          { padding: 36px 28px; }
+            .cpm-table      { font-size: 12px; }
+            .cpm-table thead th, .cpm-table tbody td { padding: 10px 8px; }
         }
     </style>
 </head>
@@ -648,7 +787,8 @@
             <div class="logo-icon">📦</div>
             <span>CloudStream</span>
         </div>
-        <nav style="display:flex;gap:28px;align-items:center;">
+        <!-- Desktop nav -->
+        <nav class="nav-desktop">
             <a href="#how-it-works" style="color:rgba(255,255,255,.7);text-decoration:none;font-size:14px;font-weight:600;transition:color .2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,.7)'">How It Works</a>
             <a href="#features" style="color:rgba(255,255,255,.7);text-decoration:none;font-size:14px;font-weight:600;transition:color .2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,.7)'">Features</a>
             <a href="#earnings" style="color:rgba(255,255,255,.7);text-decoration:none;font-size:14px;font-weight:600;transition:color .2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,.7)'">Earnings</a>
@@ -657,8 +797,23 @@
             <button class="btn-outline-white" onclick="openModal('login')">Login</button>
             <button class="btn btn-primary" style="padding:10px 22px;" onclick="openModal('signup')">Start Earning</button>
         </div>
+        <!-- Mobile hamburger -->
+        <button class="hamburger" id="hamburger" onclick="toggleMobileNav()" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+        </button>
     </div>
 </header>
+
+<!-- Mobile nav drawer -->
+<div class="mobile-nav-drawer" id="mobileNav">
+    <a class="mobile-nav-link" href="#how-it-works" onclick="closeMobileNav()">How It Works</a>
+    <a class="mobile-nav-link" href="#features" onclick="closeMobileNav()">Features</a>
+    <a class="mobile-nav-link" href="#earnings" onclick="closeMobileNav()">Earnings & CPM</a>
+    <div class="mobile-nav-btns">
+        <button class="btn-outline-white" onclick="closeMobileNav();openModal('login')">Login</button>
+        <button class="btn btn-primary" onclick="closeMobileNav();openModal('signup')">Start Earning</button>
+    </div>
+</div>
 
 <!-- ──────────────────── HERO ──────────────────── -->
 <section class="hero">
@@ -784,23 +939,23 @@
                     <tbody>
                         <tr>
                             <td><span class="badge-country">🇮🇳 India Tier-1</span></td>
-                            <td><span class="rate-value">₹150</span></td>
-                            <td><strong>₹1500</strong></td>
+                            <td><span class="rate-value">₹7–8</span></td>
+                            <td><strong>₹70–80</strong></td>
                         </tr>
                         <tr>
                             <td><span class="badge-country">🇮🇳 India Tier-2</span></td>
-                            <td><span class="rate-value">₹120</span></td>
-                            <td><strong>₹1200</strong></td>
+                            <td><span class="rate-value">₹4–6</span></td>
+                            <td><strong>₹40–60</strong></td>
                         </tr>
                         <tr>
                             <td><span class="badge-country">🌐 International</span></td>
-                            <td><span class="rate-value">₹200</span></td>
-                            <td><strong>₹2000</strong></td>
+                            <td><span class="rate-value">₹2–4</span></td>
+                            <td><strong>₹20–40</strong></td>
                         </tr>
                         <tr>
                             <td><span class="badge-country">⭐ Premium (password links)</span></td>
-                            <td><span class="rate-value">₹150</span></td>
-                            <td><strong>₹1500</strong></td>
+                            <td><span class="rate-value">₹10+</span></td>
+                            <td><strong>₹100+</strong></td>
                         </tr>
                     </tbody>
                 </table>
@@ -830,9 +985,9 @@
 
                     <div class="calc-slider-label">
                         <span>Avg CPM Rate (₹)</span>
-                        <strong id="cpmLabel">₹100</strong>
+                        <strong id="cpmLabel">₹5</strong>
                     </div>
-                    <input type="range" id="cpmSlider" min="100" max="200" step="0.5" value="5" oninput="calcEarnings()">
+                    <input type="range" id="cpmSlider" min="2" max="10" step="0.5" value="5" oninput="calcEarnings()">
 
                     <div class="calc-result">
                         <div class="calc-result-label">Estimated Monthly Earnings</div>
@@ -1021,6 +1176,20 @@
 <script src="/js/config.js"></script>
 <script src="/js/auth.js"></script>
 <script>
+    /* Mobile nav */
+    function toggleMobileNav() {
+        const nav = document.getElementById('mobileNav');
+        const btn = document.getElementById('hamburger');
+        const open = nav.classList.toggle('open');
+        btn.classList.toggle('open', open);
+        document.body.style.overflow = open ? 'hidden' : '';
+    }
+    function closeMobileNav() {
+        document.getElementById('mobileNav').classList.remove('open');
+        document.getElementById('hamburger').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
     /* Modal */
     function openModal(tab) {
         document.getElementById('authModal').classList.add('open');
