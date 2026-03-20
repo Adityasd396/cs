@@ -65,8 +65,8 @@ async function uploadFile() {
     let successCount = 0;
     let failCount = 0;
 
-    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
-    const MAX_PARALLEL_CHUNKS = 3; // Upload 3 chunks at a time
+    const CHUNK_SIZE = 20 * 1024 * 1024; // 20MB chunks
+    const MAX_PARALLEL_CHUNKS = 2; // Upload 2 chunks at a time
 
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -103,7 +103,12 @@ async function uploadFile() {
                         uploadedChunks++;
                         const overallPercent = ((uploadedChunks / totalChunks) * 100);
                         progressFill.style.width = overallPercent + '%';
-                        progressText.textContent = `Uploading ${i + 1}/${files.length}: ${Math.round(overallPercent)}%`;
+                        
+                        if (uploadedChunks === totalChunks) {
+                            progressText.textContent = `Processing ${i + 1}/${files.length}: Finalizing on server...`;
+                        } else {
+                            progressText.textContent = `Uploading ${i + 1}/${files.length}: ${Math.round(overallPercent)}%`;
+                        }
                         resolve();
                     } else {
                         reject(new Error(`Chunk ${chunkIndex} failed`));
