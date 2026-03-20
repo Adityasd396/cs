@@ -143,7 +143,8 @@ HLS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hls')
 os.makedirs(HLS_FOLDER, exist_ok=True)
 
 # Resource Management for FFmpeg
-MAX_CONCURRENT_CONVERSIONS = 2
+# On small servers, keep this to 1 to avoid freezing the system
+MAX_CONCURRENT_CONVERSIONS = 1
 hls_semaphore = threading.Semaphore(MAX_CONCURRENT_CONVERSIONS)
 
 def get_db_connection():
@@ -190,7 +191,7 @@ def convert_to_hls(file_id, current_user_id, filepath, original_filename, iv_bas
             
             ffmpeg_cmd = [
                 'ffmpeg', '-y', '-i', temp_decrypted_path,
-                '-c:v', 'libx264', '-preset', 'superfast', '-crf', '26',
+                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
                 '-vf', 'scale=-2:720,format=yuv420p',
                 '-c:a', 'aac', '-b:a', '128k',
                 '-start_number', '0', '-hls_time', '10', '-hls_list_size', '0',
