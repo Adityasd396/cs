@@ -462,7 +462,7 @@ def share_download(token):
     
     try:
         if not f[3]: # Not encrypted
-            return send_file(f[1], as_attachment=not request.args.get('preview'), download_name=f[0], mimetype=f[4])
+            return send_file(f[1], as_attachment=not request.args.get('preview'), download_name=f[0], mimetype=f[4], conditional=True)
         
         # Encrypted: Decrypt on the fly with Range support
         file_path = f[1]
