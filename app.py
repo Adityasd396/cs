@@ -152,6 +152,7 @@ class DecryptedFileAdapter:
 
     def tell(self): return self.pos
     def close(self): self.f.close()
+    def __len__(self): return self.size # Required for some web servers' range logic
     def __enter__(self): return self
     def __exit__(self, *args): self.close()
     
@@ -181,7 +182,7 @@ else:
     app.config['ENCRYPTION_KEY'] = _raw_key.ljust(32, b'\0')[:32]
 
 # Constants for streaming encryption
-CHUNK_SIZE = 4 * 1024 * 1024 # 4MB buffer for fast streaming
+CHUNK_SIZE = 512 * 1024 # 512KB buffer for more granular streaming and lower latency
 IV_SIZE = 16
 
 def get_mimetype(filename):
@@ -268,11 +269,11 @@ def convert_to_hls(file_id, current_user_id, filepath, original_filename, iv_bas
                 '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '26',
                 '-vf', 'scale=-2:720,format=yuv420p',
                 '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
-                '-force_key_frames', 'expr:gte(t,n_forced*1)',
+                '-g', '120', '-keyint_min', '120', '-force_key_frames', 'expr:gte(t,n_forced*4)',
                 '-sc_threshold', '0',
-                '-start_number', '0', '-hls_time', '1', '-hls_list_size', '0',
+                '-start_number', '0', '-hls_time', '4', '-hls_list_size', '0',
                 '-hls_segment_type', 'mpegts',
-                '-hls_flags', 'independent_segments',
+                '-hls_flags', 'independent_segments+discont_start',
                 '-hls_playlist_type', 'vod',
                 '-hls_allow_cache', '1',
                 '-f', 'hls', playlist_path
@@ -500,13 +501,17 @@ def manage_file(uid, file_id):
         initial_iv = base64.b64decode(f[2])
         adapter = DecryptedFileAdapter(f[1], initial_iv, app.config['ENCRYPTION_KEY'])
         
-        return send_file(
+        response = send_file(
             adapter,
             as_attachment=not request.args.get('preview'),
             download_name=f[0],
             mimetype=f[4],
             conditional=True
         )
+        # Force these headers for custom file-like objects
+        response.headers['Accept-Ranges'] = 'bytes'
+        response.headers['Content-Length'] = str(f[5])
+        return response
     except Exception as e:
         log_error(f"Download error for {file_id}", e)
         return jsonify({'message': 'Download failed'}), 500
@@ -533,13 +538,17 @@ def share_download(token):
         initial_iv = base64.b64decode(f[2])
         adapter = DecryptedFileAdapter(f[1], initial_iv, app.config['ENCRYPTION_KEY'])
         
-        return send_file(
+        response = send_file(
             adapter,
             as_attachment=not request.args.get('preview'),
             download_name=f[0],
             mimetype=f[4],
             conditional=True
         )
+        # Force these headers for custom file-like objects
+        response.headers['Accept-Ranges'] = 'bytes'
+        response.headers['Content-Length'] = str(f[5])
+        return response
     except Exception as e:
         log_error(f"Share download error for {token}", e)
         return jsonify({'message': 'Download failed'}), 500
