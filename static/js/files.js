@@ -333,25 +333,24 @@ function openPreviewModal(fileId, filename, mimeType, hlsPath) {
             
             const video = document.getElementById('previewVideo');
             
-            // Native HLS support (Safari)
-            if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = hlsUrl;
-            } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-                // Hls.js support (Chrome/Firefox)
+            // Hls.js support (Chrome/Firefox/Safari Desktop)
+            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                 const hls = new Hls({
-                     enableWorker: true,
-                     lowLatencyMode: false, // Better for VOD seeking
-                     backBufferLength: 300,
-                     maxBufferLength: 120,
-                     maxMaxBufferLength: 300,
-                     appendErrorMaxRetry: 5,
-                     startLevel: -1,
-                     capLevelToPlayerSize: true
-                 });
+                    enableWorker: true,
+                    lowLatencyMode: false,
+                    backBufferLength: 300,
+                    maxBufferLength: 120,
+                    maxMaxBufferLength: 600,
+                    maxBufferSize: 250 * 1024 * 1024,
+                    appendErrorMaxRetry: 10,
+                    startLevel: -1,
+                    capLevelToPlayerSize: true,
+                    progressive: true
+                });
                 hls.loadSource(hlsUrl);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    video.play();
+                    video.play().catch(e => console.warn('Autoplay blocked:', e));
                 });
 
                 hls.on(Hls.Events.ERROR, function (event, data) {
@@ -377,6 +376,10 @@ function openPreviewModal(fileId, filename, mimeType, hlsPath) {
                         closePreviewModal();
                     }
                 };
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native fallback
+                video.src = hlsUrl;
+                video.play().catch(e => console.warn('Autoplay blocked:', e));
             }
         } else if (fileType === 'video') {
             // Video is still being converted to HLS (Processing state)

@@ -121,34 +121,32 @@ function renderPreview() {
             
             const video = document.getElementById('previewVideo');
             
-            // Native HLS support (Safari)
-            if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = hlsUrl;
-                video.addEventListener('loadedmetadata', () => {
-                    video.play();
-                });
-            } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-                // Hls.js support (Chrome/Firefox)
+            // Hls.js support (Chrome/Firefox/Safari Desktop)
+            // Prefer Hls.js even if native support is present for better VOD seeking/buffering
+            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                 const hls = new Hls({
                     enableWorker: true,
-                    lowLatencyMode: false, // Better for VOD seeking
-                    backBufferLength: 300, // Preload more for smoother seeking
+                    lowLatencyMode: false,
+                    backBufferLength: 300,
                     maxBufferLength: 120,
-                    maxMaxBufferLength: 300,
-                    appendErrorMaxRetry: 5,
+                    maxMaxBufferLength: 600, // Preload up to 10 minutes if possible
+                    maxBufferSize: 250 * 1024 * 1024, // 250MB buffer
+                    appendErrorMaxRetry: 10,
                     startLevel: -1,
-                    capLevelToPlayerSize: true
+                    capLevelToPlayerSize: true,
+                    progressive: true // Better for smooth playback
                 });
                 
                 hls.loadSource(hlsUrl);
                 hls.attachMedia(video);
                 
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    console.log('HLS Manifest parsed - seeking enabled');
-                    video.play();
+                    console.log('HLS.js: Manifest parsed - seeking enabled');
+                    video.play().catch(e => console.warn('Autoplay blocked:', e));
                 });
 
                 hls.on(Hls.Events.ERROR, function (event, data) {
+                    console.warn('HLS.js Error:', data.type, data.details);
                     if (data.fatal) {
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
@@ -162,6 +160,13 @@ function renderPreview() {
                                 break;
                         }
                     }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS fallback (mostly for iOS Safari)
+                console.log('Using native HLS fallback');
+                video.src = hlsUrl;
+                video.addEventListener('loadedmetadata', () => {
+                    video.play().catch(e => console.warn('Autoplay blocked:', e));
                 });
             }
         } else {
