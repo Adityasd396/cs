@@ -35,12 +35,12 @@ def get_now_ist():
     return datetime.datetime.now(IST)
 
 def cleanup_hls_task():
-    """Background thread to cleanup HLS folders older than 24 hours and sync deduplicated HLS paths"""
+    """Background thread to cleanup HLS folders and sync deduplicated HLS paths"""
     while True:
         try:
-            # Part 1: Cleanup expired HLS
+            # Part 1: Cleanup expired HLS (24h)
             now = time.time()
-            cutoff = now - (24 * 3600) # 24 hours ago
+            cutoff = now - (24 * 3600)
             
             if os.path.exists(HLS_FOLDER):
                 for folder_name in os.listdir(HLS_FOLDER):
@@ -51,9 +51,19 @@ def cleanup_hls_task():
                             log_error(f"Cleaning up expired HLS folder: {folder_name}")
                             shutil.rmtree(folder_path)
             
-            # Part 2: Auto-repair deduplicated HLS paths
+            # Part 2: Cleanup abandoned chunks (12h)
+            chunks_root = os.path.join(app.config['UPLOAD_FOLDER'], 'chunks')
+            if os.path.exists(chunks_root):
+                chunk_cutoff = now - (12 * 3600)
+                for upload_id in os.listdir(chunks_root):
+                    c_path = os.path.join(chunks_root, upload_id)
+                    if os.path.isdir(c_path):
+                        if os.path.getmtime(c_path) < chunk_cutoff:
+                            log_error(f"Cleaning up abandoned chunk folder: {upload_id}")
+                            shutil.rmtree(c_path)
+            
+            # Part 3: Auto-repair deduplicated HLS paths
             conn = get_db_connection(); cursor = conn.cursor()
-            # Find files that have no hls_path but another file with the same physical path DOES have one
             cursor.execute('''
                 UPDATE files 
                 SET hls_path = (
@@ -71,7 +81,6 @@ def cleanup_hls_task():
                 log_error(f"Auto-repaired {cursor.rowcount} deduplicated HLS paths.")
             conn.commit(); conn.close()
             
-            # Run every 30 minutes
             time.sleep(1800)
         except Exception as e:
             log_error("Background Maintenance Task Error", e)
@@ -107,7 +116,7 @@ else:
     app.config['ENCRYPTION_KEY'] = _raw_key.ljust(32, b'\0')[:32]
 
 # Constants for chunked encryption
-CHUNK_SIZE = 512 * 1024 
+CHUNK_SIZE = 1024 * 1024 # 1MB buffer for faster streaming
 IV_SIZE = 16
 
 def get_mimetype(filename):
@@ -645,134 +654,6 @@ def upload(uid):
         if os.path.exists(final_path): os.remove(final_path)
         log_error(f"Upload error for {filename}", e)
         return jsonify({'message': f'Upload failed: {str(e)}'}), 500
-
-@app.route('/api/files/upload/chunk', methods=['POST'])
-@token_required
-def upload_chunk(uid):
-    file = request.files.get('file')
-    upload_id = request.form.get('upload_id')
-    chunk_index = int(request.form.get('chunk_index'))
-    total_chunks = int(request.form.get('total_chunks'))
-    filename = secure_filename(request.form.get('filename'))
-    content_type = request.form.get('content_type')
-    folder_id = request.form.get('folder_id')
-    
-    if not file or not upload_id:
-        return jsonify({'message': 'Missing data'}), 400
-
-    # Store chunks in a subfolder named by upload_id
-    chunk_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'chunks', upload_id)
-    os.makedirs(chunk_dir, exist_ok=True)
-    
-    chunk_path = os.path.join(chunk_dir, f"{chunk_index}.part")
-    
-    # Check if chunk already exists (might happen on retries)
-    if not os.path.exists(chunk_path):
-        file.save(chunk_path)
-    
-    # Check if this was the last chunk
-    parts = [f for f in os.listdir(chunk_dir) if f.endswith('.part')]
-    
-    if len(parts) >= total_chunks:
-        # Process-safe lock: only one worker process should assemble
-        lock_file = os.path.join(chunk_dir, "assembling.lock")
-        try:
-            # "x" mode opens for exclusive creation, failing if the file exists
-            with open(lock_file, "x"):
-                pass
-        except FileExistsError:
-            # Another worker is already assembling this file
-            return jsonify({'message': 'Assembly in progress'}), 200
-        except Exception as e:
-            log_error(f"Lock creation failed for {upload_id}", e)
-            return jsonify({'message': 'Lock error'}), 500
-
-        # Now we proceed with assembly knowing we are the only process doing it
-        log_error(f"Assembling {total_chunks} chunks for {filename} (Upload: {upload_id})")
-        
-        u_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(uid))
-        os.makedirs(u_dir, exist_ok=True)
-        stored_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-        final_path = os.path.join(u_dir, stored_name)
-        
-        iv = secrets.token_bytes(16)
-        cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(iv), backend=default_backend())
-        enc = cipher.encryptor()
-        sha256_hash = hashlib.sha256()
-        size = 0
-        
-        try:
-            with open(final_path, 'wb') as f_out:
-                for i in range(total_chunks):
-                    p = os.path.join(chunk_dir, f"{i}.part")
-                    if not os.path.exists(p):
-                        raise Exception(f"Missing chunk {i} during assembly")
-                        
-                    with open(p, 'rb') as f_in:
-                        while True:
-                            chunk_data = f_in.read(1024 * 1024) # 1MB buffer for assembly
-                            if not chunk_data: break
-                            sha256_hash.update(chunk_data)
-                            size += len(chunk_data)
-                            f_out.write(enc.update(chunk_data))
-                    
-                    # Delete part immediately after reading to free space
-                    try: os.remove(p)
-                    except: pass
-            
-                f_out.write(enc.finalize())
-            
-            # Clean up empty chunk directory
-            try: shutil.rmtree(chunk_dir)
-            except: pass
-            
-            if size == 0:
-                raise Exception("Assembled file is empty")
-
-            file_hash = sha256_hash.hexdigest()
-            log_error(f"Assembly complete: {filename}, Size: {size}, Hash: {file_hash}")
-            
-            # Database record (Deduplication Check)
-            conn = get_db_connection(); cursor = conn.cursor()
-            try:
-                cursor.execute('SELECT stored_filename, path, iv, hls_path FROM files WHERE file_hash = ? AND size = ? LIMIT 1', (file_hash, size))
-                existing = cursor.fetchone()
-                
-                if existing:
-                    # Deduplicate: use existing file on disk
-                    os.remove(final_path)
-                    cursor.execute('''INSERT INTO files 
-                                   (user_id, folder_id, filename, stored_filename, size, type, path, is_encrypted, iv, hls_path, file_hash) 
-                                   VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
-                                 (uid, folder_id, filename, existing[0], size, content_type, existing[1], 1, existing[2], existing[3], file_hash))
-                else:
-                    # New file
-                    cursor.execute('''INSERT INTO files 
-                                   (user_id, folder_id, filename, stored_filename, size, type, path, is_encrypted, iv, file_hash) 
-                                   VALUES (?,?,?,?,?,?,?,?,?,?)''',
-                                 (uid, folder_id, filename, stored_name, size, content_type, final_path, 1, base64.b64encode(iv).decode(), file_hash))
-                
-                fid = cursor.lastrowid
-                conn.commit()
-                
-                # Start HLS if video
-                if content_type.startswith('video/'):
-                    p_to_conv = final_path if not existing else existing[1]
-                    iv_to_use = base64.b64encode(iv).decode() if not existing else existing[2]
-                    threading.Thread(target=convert_to_hls, args=(fid, uid, p_to_conv, filename, iv_to_use)).start()
-                
-                resp = jsonify({'message': 'Upload Complete', 'id': fid})
-                resp.headers['Connection'] = 'close'
-                return resp, 201
-            finally:
-                cursor.close(); conn.close()
-                
-        except Exception as e:
-            if os.path.exists(final_path): os.remove(final_path)
-            log_error(f"Assembly failed for {filename}", e)
-            return jsonify({'message': f'Assembly failed: {str(e)}'}), 500
-            
-    return jsonify({'message': f'Chunk {chunk_index} accepted'}), 200
 
 # SHARE ROUTES
 @app.route('/api/shares', methods=['GET'])
