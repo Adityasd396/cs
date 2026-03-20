@@ -321,8 +321,8 @@ function openPreviewModal(fileId, filename, mimeType, hlsPath) {
             `;
         });
     } else if (fileType === 'video') {
-        if (hlsPath && typeof Hls !== 'undefined' && Hls.isSupported()) {
-            // Use HLS for streaming - Request directly from Nginx (bypassing /api)
+        // PRIORITY: Always use HLS if available for perfect seeking
+        if (hlsPath) {
             const hlsUrl = `${window.location.origin}/hls/${hlsPath}`;
             previewContent.innerHTML = `
                 <div style="text-align: center; background: #000; border-radius: 8px; overflow: hidden; position: relative;">
@@ -332,50 +332,59 @@ function openPreviewModal(fileId, filename, mimeType, hlsPath) {
             `;
             
             const video = document.getElementById('previewVideo');
-            const hls = new Hls({
-                enableWorker: true,
-                lowLatencyMode: false,
-                backBufferLength: 90,
-                maxBufferLength: 30,
-                maxMaxBufferLength: 60,
-                appendErrorMaxRetry: 3
-            });
-            hls.loadSource(hlsUrl);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                video.play();
-            });
-
-            hls.on(Hls.Events.ERROR, function (event, data) {
-                if (data.fatal) {
-                    switch (data.type) {
-                        case Hls.ErrorTypes.NETWORK_ERROR:
-                            hls.startLoad();
-                            break;
-                        case Hls.ErrorTypes.MEDIA_ERROR:
-                            hls.recoverMediaError();
-                            break;
-                        default:
-                            hls.destroy();
-                            break;
-                    }
-                }
-            });
             
-            // Handle cleanup
-            modal.onclick = function(e) {
-                if (e.target === modal) {
-                    hls.destroy();
-                    closePreviewModal();
-                }
-            };
+            // Native HLS support (Safari)
+            if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = hlsUrl;
+            } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                // Hls.js support (Chrome/Firefox)
+                const hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false, // Better for VOD seeking
+                    backBufferLength: 90,
+                    maxBufferLength: 60,
+                    maxMaxBufferLength: 120,
+                    appendErrorMaxRetry: 5,
+                    startLevel: -1,
+                    capLevelToPlayerSize: true
+                });
+                hls.loadSource(hlsUrl);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play();
+                });
+
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                hls.destroy();
+                                break;
+                        }
+                    }
+                });
+                
+                // Handle cleanup
+                modal.onclick = function(e) {
+                    if (e.target === modal) {
+                        hls.destroy();
+                        closePreviewModal();
+                    }
+                };
+            }
         } else if (fileType === 'video') {
-            // Video is still processing
+            // Video is still being converted to HLS (Processing state)
             previewContent.innerHTML = `
                 <div style="text-align: center; padding: 60px; background: #f8fafc; border-radius: 12px; border: 2px dashed var(--border);">
                     <div class="loading-spinner" style="margin: 0 auto 20px;"></div>
                     <h3 style="margin-bottom: 10px; color: var(--text);">Video is Processing...</h3>
-                    <p style="color: var(--text-light); max-width: 300px; margin: 0 auto;">We are preparing this video for high-speed streaming. Please check back in a few minutes.</p>
+                    <p style="color: var(--text-light); max-width: 300px; margin: 0 auto;">We are preparing this video for high-speed seeking. Please wait 1-2 minutes and refresh.</p>
                     <button class="btn btn-primary" style="margin-top: 20px;" onclick="location.reload()">Refresh Page</button>
                 </div>
             `;
