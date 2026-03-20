@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Storage System</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <!-- Main Application -->
+    <div id="appContainer">
+        <!-- Header -->
+        <header class="header">
+            <div class="container">
+                <div class="header-content">
+                    <div class="logo">
+                        <div class="logo-icon">📦</div>
+                        <span>CloudStream</span>
+                    </div>
+                    <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+                    <div class="nav-buttons" id="navButtons">
+                        <button class="nav-btn active" onclick="switchPage('dashboardPage', event)">Dashboard</button>
+                        <button class="nav-btn" onclick="switchPage('filesPage', event)">Files</button>
+                        <button class="nav-btn" onclick="switchPage('settingsPage', event)">Settings</button>
+                        <button class="nav-btn" id="adminTabBtn" onclick="switchPage('adminPage', event)" style="display:none;">Admin</button>
+                        <button class="nav-btn admin-btn" id="adminNavBtn" onclick="window.location.href='/admin.html'" style="display:none;">Admin Panel</button>
+                        <span class="user-info" id="userName">User</span>
+                        <button class="nav-btn logout-btn" onclick="handleLogout()">Logout</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <div class="container">
+                <!-- Dashboard Page -->
+                <div id="dashboardPage" class="page active">
+                    <h2 class="page-title">Creator Dashboard</h2>
+                    
+                    <!-- Main Stats -->
+                    <div class="stats-grid">
+                        <div class="stat-card" style="background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); color: #34d399; border: none; box-shadow: 0 10px 25px -5px rgba(6, 78, 59, 0.4);">
+                            <div class="stat-label" style="color: rgba(52, 211, 153, 0.7);">Available Balance</div>
+                            <div class="stat-value" id="userBalance" style="color: #ffffff;">₹0.00</div>
+                            <div style="margin-top: 12px; font-size: 12px; color: rgba(52, 211, 153, 0.5);">Ready to withdraw</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Earnings</div>
+                            <div class="stat-value" id="totalEarned" style="color: var(--success);">₹0.00</div>
+                            <div style="margin-top: 12px; font-size: 12px; color: var(--text-light);">Lifetime revenue</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Average CPM</div>
+                            <div class="stat-value" id="avgCpm" style="color: var(--primary);">₹0.00</div>
+                            <div style="margin-top: 12px; font-size: 12px; color: var(--text-light);">Per 1,000 views</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Views</div>
+                            <div class="stat-value" id="totalViews">0</div>
+                            <div style="margin-top: 12px; font-size: 12px; color: var(--text-light);">Global audience</div>
+                        </div>
+                    </div>
+
+                    <!-- View Stats -->
+                    <h3 style="margin: 32px 0 16px; font-size: 18px; font-weight: 700; color: var(--text);">Performance Overview</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card" style="padding: 24px; text-align: center;">
+                            <div class="stat-label" style="font-size: 12px;">Today</div>
+                            <div class="stat-value" id="viewsToday" style="font-size: 28px;">0</div>
+                        </div>
+                        <div class="stat-card" style="padding: 24px; text-align: center;">
+                            <div class="stat-label" style="font-size: 12px;">Yesterday</div>
+                            <div class="stat-value" id="viewsYesterday" style="font-size: 28px;">0</div>
+                        </div>
+                        <div class="stat-card" style="padding: 24px; text-align: center;">
+                            <div class="stat-label" style="font-size: 12px;">Last 7 Days</div>
+                            <div class="stat-value" id="views7Days" style="font-size: 28px;">0</div>
+                        </div>
+                        <div class="stat-card" style="padding: 24px; text-align: center;">
+                            <div class="stat-label" style="font-size: 12px;">This Month</div>
+                            <div class="stat-value" id="viewsMonth" style="font-size: 28px;">0</div>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Files</div>
+                            <div class="stat-value" id="totalFiles">0</div>
+                            <div style="margin-top: 12px; font-size: 12px; color: var(--text-light);">Uploaded to CloudStream</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Storage Used</div>
+                            <div class="stat-value" id="storageUsed">0 MB</div>
+                            <div style="margin-top: 12px; font-size: 12px; color: var(--text-light);">Out of 100 GB limit</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 40px;">
+                        <h3 style="margin-bottom: 20px; font-size: 18px; font-weight: 700;">Recent Activity</h3>
+                        <div class="file-list" id="recentActivityList">
+                            <div class="empty-state">No recent activity</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Files Page -->
+                <div id="filesPage" class="page">
+                    <h2 class="page-title">File Management</h2>
+
+                    <div class="upload-section">
+                        <h3>Upload New File</h3>
+                        <div class="upload-area" id="uploadArea">
+                            <div class="upload-icon">⬆️</div>
+                            <div class="upload-text">Drag and drop or <strong>click to browse</strong></div>
+                            <input type="file" id="fileInput" multiple onchange="handleFileSelect(event)" style="display: none;">
+                        </div>
+                        <button class="btn btn-primary" onclick="uploadFile()" style="margin-top: 15px; display:none;" id="uploadBtn">Upload File</button>
+                        <div class="progress-container" id="progressContainer">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressFill"></div>
+                            </div>
+                            <div class="progress-text" id="progressText">Uploading... 0%</div>
+                        </div>
+                    </div>
+
+                    <div class="files-container">
+                        <div class="files-header">
+                            <h2>My Files</h2>
+                            <button class="btn btn-secondary" onclick="openCreateFolderModal()" style="padding: 10px 16px;">📁 New Folder</button>
+                            <div class="search-box">
+                                <span>🔍</span>
+                                <input type="text" id="searchInput" placeholder="Search files..." onkeyup="filterFiles()">
+                            </div>
+                        </div>
+
+                        <div style="padding: 16px 24px;">
+                            <div class="breadcrumb" id="breadcrumb">
+                                <span class="breadcrumb-item active" onclick="navigateToFolder(null)">📁 Root</span>
+                            </div>
+
+                            <div class="file-type-tabs">
+                                <button class="file-type-tab active" onclick="filterByType('all')">All Files</button>
+                                <button class="file-type-tab" onclick="filterByType('image')">📷 Images</button>
+                                <button class="file-type-tab" onclick="filterByType('document')">📄 Documents</button>
+                                <button class="file-type-tab" onclick="filterByType('video')">🎬 Videos</button>
+                                <button class="file-type-tab" onclick="filterByType('audio')">🎵 Audio</button>
+                                <button class="file-type-tab" onclick="filterByType('archive')">📦 Archives</button>
+                            </div>
+
+                            <div class="folders-section" id="foldersSection"></div>
+                        </div>
+
+                        <div class="file-list" id="filesList">
+                            <div class="empty-state">
+                                <div class="empty-icon">📁</div>
+                                <p>No files found. Upload your first file!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Page -->
+                <div id="settingsPage" class="page">
+                    <h2 class="page-title">Settings</h2>
+
+                    <div class="settings-section">
+                        <h3>Withdrawal</h3>
+                        <div class="setting-row" style="flex-direction: column; align-items: flex-start;">
+                            <div class="setting-label">
+                                <strong>Request Payment</strong>
+                                <p style="font-size: 12px; font-weight: normal;">Minimum withdrawal: ₹50. Current Balance: <span id="settingsBalance">₹0.00</span></p>
+                            </div>
+                            <div style="display: flex; gap: 10px; width: 100%; margin-top: 10px;">
+                                <input type="text" id="upiNumber" placeholder="Enter 10-digit UPI Number" maxlength="10" style="flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 8px;">
+                                <button class="btn btn-secondary" onclick="saveUPI()" style="width: auto;">Save UPI</button>
+                                <button class="btn btn-primary" id="requestPaymentBtn" onclick="requestPayment()" style="width: auto;">Request Payment</button>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px;">
+                            <h4 style="margin-bottom: 10px; font-size: 14px; color: var(--text-light);">Payment History</h4>
+                            <div id="paymentHistoryList">
+                                <div class="empty-state" style="padding: 20px;">No payment history</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Account Information</h3>
+                        <div class="setting-row">
+                            <span class="setting-label">Username</span>
+                            <span class="setting-value" id="settingUsername">-</span>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Email</span>
+                            <span class="setting-value" id="settingEmail">-</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Storage Information</h3>
+                        <div class="setting-row">
+                            <span class="setting-label">Total Files</span>
+                            <span class="setting-value" id="settingTotalFiles">0</span>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Storage Used</span>
+                            <span class="setting-value" id="settingStorageUsed">0 MB</span>
+                        </div>
+                        <div class="setting-row">
+                            <span class="setting-label">Max Storage</span>
+                            <span class="setting-value">100 GB</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Security</h3>
+                        <button class="btn btn-secondary" onclick="openChangePasswordModal()">Change Password</button>
+                    </div>
+                </div>
+
+                <!-- Admin Page -->
+                <div id="adminPage" class="page">
+                    <h2 class="page-title">Admin Panel<span class="admin-badge">ADMIN</span></h2>
+                    
+                    <div class="stats-grid" style="margin-bottom: 30px;">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Users</div>
+                            <div class="stat-value" id="adminTotalUsers">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Online Users</div>
+                            <div class="stat-value" id="adminOnlineUsers" style="color: var(--success);">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Storage</div>
+                            <div class="stat-value" id="adminTotalStorage">0 MB</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Shares</div>
+                            <div class="stat-value" id="adminTotalShares">0</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>System Settings</h3>
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <strong>User Registrations</strong>
+                                <p style="font-size: 12px; font-weight: normal;">Allow new users to create accounts</p>
+                            </div>
+                            <div class="setting-value">
+                                <label class="switch">
+                                    <input type="checkbox" id="regToggle" onchange="toggleRegistrations()">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="setting-row" style="flex-direction: column; align-items: flex-start;">
+                            <div class="setting-label">
+                                <strong>Blocked Countries</strong>
+                                <p style="font-size: 12px; font-weight: normal;">Comma-separated ISO codes (e.g. US,CN,RU)</p>
+                            </div>
+                            <div style="display: flex; gap: 10px; width: 100%; margin-top: 10px;">
+                                <input type="text" id="blockedCountries" placeholder="e.g. US,CN,RU" style="flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 4px;">
+                                <button class="btn btn-primary" onclick="updateBlockedCountries()" style="width: auto; padding: 8px 16px;">Save</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>User Management</h3>
+                        <div style="margin-bottom: 20px;">
+                            <button class="btn btn-primary" onclick="openAddUserModal()">➕ Add New User</button>
+                        </div>
+                        <div id="adminUsersList">
+                            <div class="empty-state">
+                                <div class="empty-icon">👥</div>
+                                <p>Loading users...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>All Files</h3>
+                        <div class="table-container">
+                            <table class="data-table" id="adminFilesTable">
+                                <thead>
+                                    <tr>
+                                        <th>Filename</th>
+                                        <th>User</th>
+                                        <th>Size</th>
+                                        <th>Uploaded</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminFilesBody">
+                                    <tr>
+                                        <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-light);">Loading files...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-section">
+                        <h3>Cloud Storage</h3>
+                        <p>Secure and reliable file storage solution for individuals and teams.</p>
+                    </div>
+                    <div class="footer-section">
+                        <h3>Quick Links</h3>
+                        <a href="#" onclick="switchPage('dashboardPage', event); return false;">Dashboard</a>
+                        <a href="#" onclick="switchPage('filesPage', event); return false;">Files</a>
+                        <a href="#" onclick="switchPage('settingsPage', event); return false;">Settings</a>
+                    </div>
+                    <div class="footer-section">
+                        <h3>Support</h3>
+                        <a href="#">Help Center</a>
+                        <a href="#">Privacy Policy</a>
+                        <a href="#">Terms of Service</a>
+                        <a href="#">Contact Us</a>
+                    </div>
+                </div>
+                <div class="footer-bottom">
+                    <p>&copy; Cloud Storage System. Project by - Aditya Sushil Dahiwal</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <div id="shareModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">Create Share Link</div>
+            <div class="form-group">
+                <label>Password (Optional)</label>
+                <input type="password" id="sharePassword" placeholder="Leave blank for no password">
+            </div>
+            <div class="form-group">
+                <label>Expiry (Hours)</label>
+                <input type="number" id="shareExpiry" value="24" min="1">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="createShare()">Create Link</button>
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="changePasswordModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">Change Password</div>
+            <div class="form-group">
+                <label>Current Password</label>
+                <input type="password" id="currentPassword" placeholder="Current password">
+            </div>
+            <div class="form-group">
+                <label>New Password</label>
+                <input type="password" id="newPassword" placeholder="New password (min 6 characters)">
+            </div>
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <input type="password" id="confirmNewPassword" placeholder="Confirm new password">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="changePassword()">Change Password</button>
+                <button class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="forgotPasswordModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">Reset Password</div>
+            <p style="color: var(--text-light); font-size: 14px; margin-bottom: 20px;">
+                Enter your email address and we'll send you instructions to reset your password.
+            </p>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="forgotEmail" placeholder="your@email.com">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="handleForgotPassword()">Send Reset Link</button>
+                <button class="btn btn-secondary" onclick="closeForgotPasswordModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="addUserModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">Add New User</div>
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="addUserName" placeholder="John Doe">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="addUserEmail" placeholder="user@example.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="addUserPassword" placeholder="Minimum 6 characters">
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="addUserIsAdmin" style="width: auto; cursor: pointer;">
+                    <span>Make this user an administrator</span>
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="handleAddUser()">Create User</button>
+                <button class="btn btn-secondary" onclick="closeAddUserModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="createFolderModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">Create New Folder</div>
+            <div class="form-group">
+                <label>Folder Name</label>
+                <input type="text" id="folderName" placeholder="Enter folder name">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="handleCreateFolder()">Create Folder</button>
+                <button class="btn btn-secondary" onclick="closeCreateFolderModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="previewModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header" id="previewTitle">File Preview</div>
+            <div id="previewContent" style="text-align: center; min-height: 300px; display: flex; align-items: center; justify-content: center;">
+                Loading preview...
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePreviewModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Modules -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="/js/config.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/folders.js"></script>
+    <script src="/js/files.js"></script>
+    <script src="/js/shares.js"></script>
+    <script src="/js/stats.js"></script>
+    <script src="/js/admin.js"></script>
+    <script>
+        // Check authentication on load
+        window.addEventListener('load', () => {
+            if (!localStorage.getItem('token')) {
+                window.location.href = '/index.html';
+                return;
+            }
+            
+            currentUser = JSON.parse(localStorage.getItem('user'));
+            token = localStorage.getItem('token');
+            
+            // Show Admin Panel if applicable
+            if (currentUser.is_admin) {
+                document.getElementById('adminNavBtn').style.display = 'block';
+                const adminTabBtn = document.getElementById('adminTabBtn');
+                if (adminTabBtn) adminTabBtn.style.display = 'block';
+            }
+            
+            document.getElementById('userName').textContent = currentUser.username;
+            document.getElementById('userName').style.display = 'block';
+
+            // Initial Data Load
+            loadStats();
+            loadFolders();
+            loadFiles();
+            loadShares();
+            loadSettings();
+            
+            // Setup Upload Area
+            if (typeof setupUploadArea === 'function') setupUploadArea();
+        });
+
+        function toggleMobileMenu() {
+            const nav = document.getElementById('navButtons');
+            nav.classList.toggle('active');
+        }
+
+        // Simplified switchPage for dashboard.html
+        function switchPage(pageId, event) {
+            console.log('Switching to page:', pageId);
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            const pages = document.querySelectorAll('.page');
+            const navBtns = document.querySelectorAll('.nav-btn');
+            
+            // Hide all pages
+            pages.forEach(p => {
+                p.classList.remove('active');
+                p.style.display = 'none';
+            });
+            
+            // Show target page
+            const targetPage = document.getElementById(pageId);
+            if (targetPage) {
+                targetPage.classList.add('active');
+                targetPage.style.display = 'block';
+            } else {
+                console.error('Page not found:', pageId);
+            }
+            
+            // Update nav buttons
+            navBtns.forEach(b => b.classList.remove('active'));
+            
+            if (event && event.currentTarget && event.currentTarget.classList.contains('nav-btn')) {
+                event.currentTarget.classList.add('active');
+            } else {
+                // Find by onclick attribute if no direct event target
+                navBtns.forEach(btn => {
+                    const oc = btn.getAttribute('onclick');
+                    if (oc && oc.includes(`'${pageId}'`)) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+            
+            // Refresh data on switch
+            if (pageId === 'dashboardPage') loadStats();
+            else if (pageId === 'filesPage') loadFiles();
+            else if (pageId === 'settingsPage') loadSettings();
+            else if (pageId === 'adminPage') loadAdminData();
+            
+            // Close mobile menu if open
+            const nav = document.getElementById('navButtons');
+            if (nav) nav.classList.remove('active');
+        }
+    </script>
+</body>
+</html>

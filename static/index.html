@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudStream - Pay Per View Storage</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ── Landing-page–only overrides ─────────────────────────── */
+        :root {
+            --accent: #f59e0b;
+            --accent-light: #fef3c7;
+            --green: #10b981;
+            --green-light: #d1fae5;
+            --hero-grad: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #1d4ed8 100%);
+        }
+
+        body { overflow-x: hidden; }
+
+        /* ── Sticky Header ──────────────────────────────────────── */
+        .landing-header {
+            background: rgba(15,23,42,0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .landing-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .landing-header .logo { color: white; }
+        .landing-header .logo-icon {
+            background: linear-gradient(135deg,#3b82f6,#1d4ed8);
+            box-shadow: 0 0 20px rgba(59,130,246,.5);
+        }
+        .cta-buttons { display: flex; gap: 12px; }
+        .btn-outline-white {
+            padding: 10px 22px;
+            border: 1.5px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            background: transparent;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-outline-white:hover { background: rgba(255,255,255,0.1); border-color: white; }
+
+        /* ── Hero ────────────────────────────────────────────────── */
+        .hero {
+            background: var(--hero-grad);
+            padding: 110px 0 80px;
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 60% 50% at 80% 20%, rgba(99,102,241,.25) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 40% at 10% 80%, rgba(16,185,129,.15) 0%, transparent 60%);
+        }
+        /* animated grid */
+        .hero-grid {
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: gridMove 20s linear infinite;
+        }
+        @keyframes gridMove { from{background-position:0 0;} to{background-position:60px 60px;} }
+
+        .hero .container { position: relative; z-index: 1; }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(245,158,11,.15);
+            border: 1px solid rgba(245,158,11,.4);
+            color: #fbbf24;
+            padding: 8px 18px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            margin-bottom: 28px;
+            animation: fadeUp .6s ease both;
+        }
+        .hero h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: 72px;
+            font-weight: 800;
+            color: white;
+            line-height: 1.05;
+            letter-spacing: -0.03em;
+            margin-bottom: 24px;
+            animation: fadeUp .7s .1s ease both;
+        }
+        .hero h1 span { color: #60a5fa; }
+        .hero > .container > p {
+            font-size: 20px;
+            color: rgba(255,255,255,.75);
+            max-width: 640px;
+            margin: 0 auto 44px;
+            line-height: 1.65;
+            animation: fadeUp .7s .2s ease both;
+        }
+        .hero-cta {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeUp .7s .3s ease both;
+            margin-bottom: 64px;
+        }
+        .btn-hero-primary {
+            padding: 16px 34px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 0 0 0 rgba(37,99,235,.5);
+            transition: all 0.3s;
+            animation: pulse-ring 2s 1s infinite;
+        }
+        @keyframes pulse-ring {
+            0%   { box-shadow: 0 0 0 0 rgba(37,99,235,.5); }
+            70%  { box-shadow: 0 0 0 14px rgba(37,99,235,0); }
+            100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+        }
+        .btn-hero-primary:hover { background: #1d4ed8; transform: translateY(-2px); }
+        .btn-hero-ghost {
+            padding: 16px 34px;
+            background: rgba(255,255,255,.1);
+            color: white;
+            border: 1.5px solid rgba(255,255,255,.25);
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-hero-ghost:hover { background: rgba(255,255,255,.18); }
+
+        /* hero stats bar */
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            background: rgba(255,255,255,.07);
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 20px;
+            max-width: 680px;
+            margin: 0 auto;
+            overflow: hidden;
+            animation: fadeUp .7s .4s ease both;
+        }
+        .hero-stat {
+            flex: 1;
+            padding: 24px 20px;
+            text-align: center;
+            border-right: 1px solid rgba(255,255,255,.1);
+        }
+        .hero-stat:last-child { border-right: none; }
+        .hero-stat-value {
+            font-family: 'Syne', sans-serif;
+            font-size: 28px;
+            font-weight: 800;
+            color: white;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .hero-stat-label { font-size: 12px; color: rgba(255,255,255,.55); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── How It Works ──────────────────────────────────────── */
+        .section { padding: 100px 0; }
+        .section-label {
+            display: inline-block;
+            background: var(--primary-light);
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            padding: 6px 16px;
+            border-radius: 9999px;
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 48px;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+            line-height: 1.1;
+        }
+        .section-sub {
+            color: var(--text-light);
+            font-size: 18px;
+            max-width: 560px;
+            line-height: 1.6;
+            margin-bottom: 64px;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 28px;
+        }
+        .step-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 40px 32px;
+            position: relative;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.35s cubic-bezier(.4,0,.2,1);
+            overflow: hidden;
+        }
+        .step-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), #60a5fa);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform .3s ease;
+        }
+        .step-card:hover { transform: translateY(-10px); box-shadow: var(--shadow-lg); }
+        .step-card:hover::after { transform: scaleX(1); }
+        .step-number {
+            font-family: 'Syne', sans-serif;
+            font-size: 56px;
+            font-weight: 800;
+            color: #e2e8f0;
+            line-height: 1;
+            margin-bottom: 16px;
+            letter-spacing: -0.04em;
+        }
+        .step-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--primary-light);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            margin-bottom: 20px;
+        }
+        .step-card h3 { font-size: 20px; font-weight: 800; margin-bottom: 10px; letter-spacing: -0.02em; }
+        .step-card p { color: var(--text-light); font-size: 14px; line-height: 1.65; }
+
+        /* ── Features ─────────────────────────────────────────── */
+        .features-section { background: #f8fafc; padding: 100px 0; }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+        }
+        .feature-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 40px 36px;
+            box-shadow: var(--shadow-sm);
+            transition: all .35s cubic-bezier(.4,0,.2,1);
+        }
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary);
+        }
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 24px;
+        }
+        .fi-blue   { background: #eff6ff; }
+        .fi-green  { background: #d1fae5; }
+        .fi-amber  { background: #fef3c7; }
+        .fi-purple { background: #ede9fe; }
+        .fi-rose   { background: #ffe4e6; }
+        .fi-cyan   { background: #cffafe; }
+        .feature-card h3 { font-size: 20px; font-weight: 800; margin-bottom: 10px; letter-spacing: -0.02em; }
+        .feature-card p  { color: var(--text-light); font-size: 14px; line-height: 1.65; }
+
+        /* ── CPM / Earnings ───────────────────────────────────── */
+        .earnings-section { padding: 100px 0; }
+        .earnings-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+        .earnings-left h2 { font-family: 'Syne', sans-serif; font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 16px; }
+        .earnings-left p { color: var(--text-light); font-size: 16px; line-height: 1.7; margin-bottom: 32px; }
+
+        .cpm-table {
+            width: 100%;
+            border-collapse: collapse;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+        .cpm-table thead th {
+            background: var(--primary);
+            color: white;
+            padding: 16px 20px;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            text-align: left;
+        }
+        .cpm-table tbody tr { background: white; border-bottom: 1px solid #f1f5f9; transition: background .15s; }
+        .cpm-table tbody tr:hover { background: #f8fafc; }
+        .cpm-table tbody td { padding: 16px 20px; font-size: 14px; color: var(--text); }
+        .cpm-table .badge-country {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-weight: 700; font-size: 13px;
+        }
+        .rate-value { font-weight: 800; color: var(--green); font-size: 15px; }
+
+        .upi-block {
+            background: linear-gradient(135deg,#0f172a,#1e3a8a);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            color: white;
+            margin-top: 28px;
+        }
+        .upi-block h4 { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+        .upi-block p { color: rgba(255,255,255,.7); font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
+        .upi-logos { display: flex; gap: 10px; flex-wrap: wrap; }
+        .upi-pill {
+            background: rgba(255,255,255,.12);
+            border: 1px solid rgba(255,255,255,.2);
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 700;
+            color: white;
+        }
+        .upi-pill.gpay  { background: rgba(66,133,244,.25);  border-color: rgba(66,133,244,.5); }
+        .upi-pill.phone { background: rgba(111,44,205,.25);  border-color: rgba(111,44,205,.5); }
+        .upi-pill.paytm { background: rgba(0,150,136,.25);   border-color: rgba(0,150,136,.5); }
+        .upi-pill.bhim  { background: rgba(234,67,53,.25);   border-color: rgba(234,67,53,.5); }
+
+        /* earning calculator */
+        .calc-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            box-shadow: var(--shadow-md);
+        }
+        .calc-card h3 { font-size: 22px; font-weight: 800; margin-bottom: 24px; }
+        .calc-slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .calc-slider-label span { font-size: 14px; color: var(--text-light); font-weight: 600; }
+        .calc-slider-label strong { font-size: 16px; font-weight: 800; color: var(--primary); }
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--primary);
+            height: 6px;
+            border-radius: 9999px;
+            margin-bottom: 28px;
+            cursor: pointer;
+        }
+        .calc-result {
+            background: linear-gradient(135deg,var(--primary),#1d4ed8);
+            border-radius: var(--radius);
+            padding: 28px;
+            text-align: center;
+            color: white;
+        }
+        .calc-result-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; opacity: .8; margin-bottom: 8px; }
+        .calc-result-value { font-family: 'Syne', sans-serif; font-size: 44px; font-weight: 800; letter-spacing: -0.03em; }
+        .calc-result-sub { font-size: 13px; opacity: .75; margin-top: 6px; }
+
+        /* ── Testimonials ─────────────────────────────────────── */
+        .testimonials-section { background: #f8fafc; padding: 100px 0; }
+        .testimonials-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 28px; }
+        .testi-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 36px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .testi-stars { color: #f59e0b; font-size: 16px; letter-spacing: 2px; }
+        .testi-text { color: var(--text); font-size: 15px; line-height: 1.7; flex: 1; }
+        .testi-author { display: flex; align-items: center; gap: 14px; }
+        .testi-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 800;
+            color: white;
+            flex-shrink: 0;
+        }
+        .testi-name { font-weight: 700; font-size: 15px; color: var(--text); }
+        .testi-role { font-size: 13px; color: var(--text-light); }
+        .earning-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--green-light);
+            color: #065f46;
+            font-size: 12px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            margin-top: 4px;
+        }
+
+        /* ── CTA Banner ───────────────────────────────────────── */
+        .cta-banner {
+            padding: 100px 0;
+            background: var(--hero-grad);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .cta-banner::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(59,130,246,.2) 0%, transparent 70%);
+        }
+        .cta-banner .container { position: relative; z-index: 1; }
+        .cta-banner h2 { font-family: 'Syne', sans-serif; font-size: 52px; font-weight: 800; color: white; letter-spacing: -0.03em; margin-bottom: 16px; }
+        .cta-banner p { color: rgba(255,255,255,.75); font-size: 18px; margin-bottom: 44px; }
+        .cta-banner-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+        /* ── Footer ───────────────────────────────────────────── */
+        .site-footer {
+            background: #0f172a;
+            color: white;
+            padding: 64px 0 32px;
+        }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 48px;
+        }
+        .footer-brand .logo { color: white; margin-bottom: 16px; }
+        .footer-brand .logo-icon { background: linear-gradient(135deg,#3b82f6,#1d4ed8); }
+        .footer-brand p { color: #94a3b8; font-size: 14px; line-height: 1.7; margin-bottom: 20px; }
+        .footer-col h4 { font-size: 14px; font-weight: 700; color: white; margin-bottom: 16px; letter-spacing: .03em; }
+        .footer-col a { display: block; color: #64748b; font-size: 14px; text-decoration: none; margin-bottom: 10px; transition: color .2s; }
+        .footer-col a:hover { color: #93c5fd; }
+        .footer-divider { border-color: #1e293b; margin-bottom: 28px; }
+        .footer-bottom-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #475569; }
+
+        /* ── Modal ────────────────────────────────────────────── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,.6);
+            backdrop-filter: blur(8px);
+            z-index: 9000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity .25s, visibility .25s;
+        }
+        .modal-overlay.open { opacity: 1; visibility: visible; }
+        .modal-box {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 52px 48px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 40px 80px -20px rgba(0,0,0,.4);
+            transform: scale(.96) translateY(16px);
+            transition: transform .3s cubic-bezier(.4,0,.2,1);
+            position: relative;
+        }
+        .modal-overlay.open .modal-box { transform: scale(1) translateY(0); }
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #f1f5f9;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 9999px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+            transition: all .2s;
+        }
+        .modal-close:hover { background: #e2e8f0; color: var(--text); }
+        .modal-logo { font-size: 44px; margin-bottom: 12px; }
+        .modal-title { font-family: 'Syne', sans-serif; font-size: 30px; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 6px; }
+        .modal-sub { color: var(--text-light); font-size: 15px; margin-bottom: 36px; }
+        .modal-tabs {
+            display: flex;
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 32px;
+        }
+        .modal-tab {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            border-radius: 9px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .modal-tab.active { background: white; color: var(--primary); box-shadow: var(--shadow-sm); }
+
+        /* form group (reuse existing input styles but define here to be safe) */
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 7px; letter-spacing: .02em; }
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            font-size: 14px;
+            color: var(--text);
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+            background: #f8fafc;
+        }
+        .form-group input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+            background: white;
+        }
+        .modal-footer-link {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        .modal-footer-link a { color: var(--primary); font-weight: 700; cursor: pointer; text-decoration: none; }
+        .modal-footer-link a:hover { text-decoration: underline; }
+        .modal-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 24px 0;
+            color: var(--text-light);
+            font-size: 13px;
+        }
+        .modal-divider::before, .modal-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+        .modal-social-btn {
+            width: 100%;
+            padding: 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            background: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all .2s;
+            color: var(--text);
+        }
+        .modal-social-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+        /* ── Responsive ───────────────────────────────────────── */
+        @media (max-width: 1024px) {
+            .features-grid      { grid-template-columns: repeat(2,1fr); }
+            .footer-grid        { grid-template-columns: 1fr 1fr; }
+            .earnings-layout    { grid-template-columns: 1fr; gap: 48px; }
+        }
+        @media (max-width: 768px) {
+            .hero h1            { font-size: 44px; }
+            .section-title      { font-size: 36px; }
+            .hero-stats         { flex-direction: column; }
+            .hero-stat          { border-right: none; border-bottom: 1px solid rgba(255,255,255,.1); }
+            .hero-stat:last-child { border-bottom: none; }
+            .features-grid      { grid-template-columns: 1fr; }
+            .testimonials-grid  { grid-template-columns: 1fr; }
+            .footer-grid        { grid-template-columns: 1fr; }
+            .cta-banner h2      { font-size: 36px; }
+            .footer-bottom-row  { flex-direction: column; gap: 12px; text-align: center; }
+            .steps-grid         { grid-template-columns: 1fr; }
+            .modal-box          { padding: 36px 28px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ──────────────────── HEADER ──────────────────── -->
+<header class="landing-header">
+    <div class="container landing-nav">
+        <div class="logo">
+            <div class="logo-icon">📦</div>
+            <span>CloudStream</span>
+        </div>
+        <nav style="display:flex;gap:28px;align-items:center;">
+            <a href="#how-it-works" style="color:rgba(255,255,255,.7);text-decoration:none;font-size:14px;font-weight:600;transition:color .2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,.7)'">How It Works</a>
+            <a href="#features" style="color:rgba(255,255,255,.7);text-decoration:none;font-size:14px;font-weight:600;transition:color .2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,.7)'">Features</a>
+            <a href="#earnings" style="color:rgba(255,255,255,.7);text-decoration:none;font-size:14px;font-weight:600;transition:color .2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,.7)'">Earnings</a>
+        </nav>
+        <div class="cta-buttons">
+            <button class="btn-outline-white" onclick="openModal('login')">Login</button>
+            <button class="btn btn-primary" style="padding:10px 22px;" onclick="openModal('signup')">Start Earning</button>
+        </div>
+    </div>
+</header>
+
+<!-- ──────────────────── HERO ──────────────────── -->
+<section class="hero">
+    <div class="hero-grid"></div>
+    <div class="container">
+        <div class="hero-badge">🇮🇳 &nbsp;India's #1 CPM Video Platform</div>
+        <h1>Turn Your Videos Into<br><span>Real Revenue</span></h1>
+        <p>Upload, share your link, and earn ₹ for every unique view — paid instantly to your UPI. No minimum threshold. No waiting.</p>
+        <div class="hero-cta">
+            <button class="btn-hero-primary" onclick="openModal('signup')">🚀 Start Earning Free</button>
+            <button class="btn-hero-ghost" onclick="document.getElementById('how-it-works').scrollIntoView({behavior:'smooth'})">See How It Works →</button>
+        </div>
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <span class="hero-stat-value">₹2–₹8</span>
+                <span class="hero-stat-label">CPM Rate</span>
+            </div>
+            <div class="hero-stat">
+                <span class="hero-stat-value">50K+</span>
+                <span class="hero-stat-label">Creators</span>
+            </div>
+            <div class="hero-stat">
+                <span class="hero-stat-value">&lt;1 min</span>
+                <span class="hero-stat-label">UPI Payout</span>
+            </div>
+            <div class="hero-stat">
+                <span class="hero-stat-value">HLS</span>
+                <span class="hero-stat-label">Streaming</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ──────────────────── HOW IT WORKS ──────────────────── -->
+<section class="section" id="how-it-works">
+    <div class="container">
+        <span class="section-label">Simple Process</span>
+        <h2 class="section-title">Three steps to your<br>first payout</h2>
+        <p class="section-sub">No technical knowledge needed. If you can upload a video, you can earn money on CloudStream.</p>
+        <div class="steps-grid">
+            <div class="step-card">
+                <div class="step-number">01</div>
+                <div class="step-icon">📤</div>
+                <h3>Upload Your Video</h3>
+                <p>Drag & drop any MP4, MKV, or AVI file up to 10 GB. We transcode it to adaptive HLS automatically.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">02</div>
+                <div class="step-icon">🔗</div>
+                <h3>Share Your Link</h3>
+                <p>Get a unique, shareable streaming link instantly. Optionally add password protection or set expiry.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">03</div>
+                <div class="step-icon">💸</div>
+                <h3>Get Paid via UPI</h3>
+                <p>Earnings auto-credit to your UPI ID within minutes of each view. No ₹ minimum payout threshold.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">04</div>
+                <div class="step-icon">📊</div>
+                <h3>Track in Real Time</h3>
+                <p>Live dashboard showing views, unique visitors, CPM earned, and payout history — all in one place.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ──────────────────── FEATURES ──────────────────── -->
+<section class="features-section" id="features">
+    <div class="container">
+        <span class="section-label">Platform Features</span>
+        <h2 class="section-title">Everything you need<br>to monetize</h2>
+        <p class="section-sub">Professional-grade tools built for Indian content creators.</p>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon fi-blue">💸</div>
+                <h3>CPM Pay Per View</h3>
+                <p>Earn ₹2–₹8 per 1,000 views. Higher rates for Tier-1 city traffic. Transparent, real-time CPM dashboard.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-amber">🇮🇳</div>
+                <h3>Instant UPI Payouts</h3>
+                <p>GPay, PhonePe, Paytm, BHIM — any UPI ID works. Payouts hit within 60 seconds of reaching the threshold.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-green">⚡</div>
+                <h3>Adaptive HLS Streaming</h3>
+                <p>Nginx + FFmpeg pipeline. Auto-quality switching from 360p to 1080p. Zero buffering for viewers on 4G.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-purple">🔒</div>
+                <h3>Military-Grade Encryption</h3>
+                <p>AES-256 at rest. Password-protected links. Time-limited tokens. You decide exactly who watches.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-rose">📂</div>
+                <h3>Folder Organisation</h3>
+                <p>Create nested folders, move files, bulk rename. Keep your content library tidy as you scale.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-cyan">📈</div>
+                <h3>Analytics & Referrals</h3>
+                <p>Country-wise traffic, device breakdown, peak-hour heatmaps. Refer a creator and earn 5% of their CPM forever.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ──────────────────── EARNINGS / CPM ──────────────────── -->
+<section class="earnings-section" id="earnings">
+    <div class="container">
+        <div class="earnings-layout">
+            <div class="earnings-left">
+                <span class="section-label">CPM Rates</span>
+                <h2>Real rates,<br>real rupees</h2>
+                <p>CloudStream pays CPM rates competitive with top global platforms — and we pay in ₹ directly to your UPI. No forex conversion, no waiting for bank transfer.</p>
+
+                <table class="cpm-table">
+                    <thead>
+                        <tr><th>Traffic Source</th><th>CPM Rate</th><th>Per 10K Views</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge-country">🇮🇳 India Tier-1</span></td>
+                            <td><span class="rate-value">₹150</span></td>
+                            <td><strong>₹1500</strong></td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge-country">🇮🇳 India Tier-2</span></td>
+                            <td><span class="rate-value">₹120</span></td>
+                            <td><strong>₹1200</strong></td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge-country">🌐 International</span></td>
+                            <td><span class="rate-value">₹200</span></td>
+                            <td><strong>₹2000</strong></td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge-country">⭐ Premium (password links)</span></td>
+                            <td><span class="rate-value">₹150</span></td>
+                            <td><strong>₹1500</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="upi-block">
+                    <h4>💳 Instant UPI Payouts</h4>
+                    <p>Connect any UPI ID once. We auto-send your earnings as views come in — no minimum, no delays.</p>
+                    <div class="upi-logos">
+                        <span class="upi-pill gpay">Google Pay</span>
+                        <span class="upi-pill phone">PhonePe</span>
+                        <span class="upi-pill paytm">Paytm</span>
+                        <span class="upi-pill bhim">BHIM UPI</span>
+                        <span class="upi-pill">Any UPI</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="earnings-right">
+                <div class="calc-card">
+                    <h3>💰 Earnings Calculator</h3>
+
+                    <div class="calc-slider-label">
+                        <span>Monthly Views</span>
+                        <strong id="viewsLabel">50,000</strong>
+                    </div>
+                    <input type="range" id="viewsSlider" min="1000" max="1000000" step="1000" value="50000" oninput="calcEarnings()">
+
+                    <div class="calc-slider-label">
+                        <span>Avg CPM Rate (₹)</span>
+                        <strong id="cpmLabel">₹100</strong>
+                    </div>
+                    <input type="range" id="cpmSlider" min="100" max="200" step="0.5" value="5" oninput="calcEarnings()">
+
+                    <div class="calc-result">
+                        <div class="calc-result-label">Estimated Monthly Earnings</div>
+                        <div class="calc-result-value" id="calcOutput">₹250</div>
+                        <div class="calc-result-sub">Paid directly to your UPI ID</div>
+                    </div>
+
+                    <button class="btn btn-primary" style="width:100%;margin-top:20px;font-size:15px;padding:14px;" onclick="openModal('signup')">
+                        Start Earning This Much →
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ──────────────────── TESTIMONIALS ──────────────────── -->
+<section class="testimonials-section">
+    <div class="container">
+        <span class="section-label">Creator Stories</span>
+        <h2 class="section-title">Creators love CloudStream</h2>
+        <p class="section-sub" style="margin-bottom:56px;">Real creators, real earnings, real UPI transfers.</p>
+        <div class="testimonials-grid">
+            <div class="testi-card">
+                <div class="testi-stars">★★★★★</div>
+                <p class="testi-text">"I uploaded 20 videos of my coaching sessions. Within a week I was getting ₹400+ daily. The UPI payout hits my PhonePe literally within a minute!"</p>
+                <div class="testi-author">
+                    <div class="testi-avatar" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)">R</div>
+                    <div>
+                        <div class="testi-name">Rahul Sharma</div>
+                        <div class="testi-role">Online Tutor · Mumbai</div>
+                        <div class="earning-tag">💸 ₹12,400 / month</div>
+                    </div>
+                </div>
+            </div>
+            <div class="testi-card">
+                <div class="testi-stars">★★★★★</div>
+                <p class="testi-text">"Finally a platform that pays Indian rates for Indian traffic. I tried others but the ₹ payout with UPI makes CloudStream 10x better for me as a Hindi creator."</p>
+                <div class="testi-author">
+                    <div class="testi-avatar" style="background:linear-gradient(135deg,#10b981,#059669)">P</div>
+                    <div>
+                        <div class="testi-name">Priya Deshpande</div>
+                        <div class="testi-role">Content Creator · Pune</div>
+                        <div class="earning-tag">💸 ₹8,750 / month</div>
+                    </div>
+                </div>
+            </div>
+            <div class="testi-card">
+                <div class="testi-stars">★★★★★</div>
+                <p class="testi-text">"The HLS streaming quality is buttery smooth. My viewers are happy, my CPM is high, and the analytics show me exactly which videos are performing best."</p>
+                <div class="testi-author">
+                    <div class="testi-avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706)">A</div>
+                    <div>
+                        <div class="testi-name">Arjun Mehta</div>
+                        <div class="testi-role">Fitness Trainer · Delhi</div>
+                        <div class="earning-tag">💸 ₹21,000 / month</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ──────────────────── CTA BANNER ──────────────────── -->
+<section class="cta-banner">
+    <div class="container">
+        <h2>Ready to start earning?</h2>
+        <p>Join 50,000+ Indian creators already monetizing their videos on CloudStream.</p>
+        <div class="cta-banner-btns">
+            <button class="btn-hero-primary" onclick="openModal('signup')">🚀 Create Free Account</button>
+            <button class="btn-hero-ghost" onclick="openModal('login')">Already a member? Sign In</button>
+        </div>
+    </div>
+</section>
+
+<!-- ──────────────────── FOOTER ──────────────────── -->
+<footer class="site-footer">
+    <div class="container">
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <div class="logo">
+                    <div class="logo-icon">📦</div>
+                    <span>CloudStream</span>
+                </div>
+                <p>India's fastest-growing pay-per-view video hosting platform. Built for creators who want real rupees for real views.</p>
+                <div style="display:flex;gap:10px;">
+                    <span class="upi-pill gpay" style="font-size:11px;padding:5px 12px;">GPay</span>
+                    <span class="upi-pill phone" style="font-size:11px;padding:5px 12px;">PhonePe</span>
+                    <span class="upi-pill paytm" style="font-size:11px;padding:5px 12px;">Paytm</span>
+                </div>
+            </div>
+            <div class="footer-col">
+                <h4>Platform</h4>
+                <a href="#">Upload Videos</a>
+                <a href="#">HLS Streaming</a>
+                <a href="#">Analytics</a>
+                <a href="#">UPI Payouts</a>
+                <a href="#">Referral Program</a>
+            </div>
+            <div class="footer-col">
+                <h4>Support</h4>
+                <a href="#">Help Centre</a>
+                <a href="#">Creator Docs</a>
+                <a href="#">API Reference</a>
+                <a href="#">Status Page</a>
+                <a href="#">Contact Us</a>
+            </div>
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">DMCA</a>
+                <a href="#">Cookie Policy</a>
+            </div>
+        </div>
+        <hr class="footer-divider">
+        <div class="footer-bottom-row">
+            <span>© 2026 CloudStream. All rights reserved.</span>
+            <span>🇮🇳 Made in India · UPI Powered</span>
+        </div>
+    </div>
+</footer>
+
+<!-- ──────────────────── AUTH MODAL ──────────────────── -->
+<div class="modal-overlay" id="authModal" onclick="if(event.target===this) closeModal()">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal()">✕</button>
+        <div class="modal-logo">📦</div>
+
+        <!-- Tabs -->
+        <div class="modal-tabs">
+            <button class="modal-tab active" id="tabLogin" onclick="switchTab('login')">Sign In</button>
+            <button class="modal-tab" id="tabSignup" onclick="switchTab('signup')">Create Account</button>
+        </div>
+
+        <!-- Login Form -->
+        <div id="formLogin">
+            <p class="modal-sub" style="margin-bottom:24px;">Welcome back, creator 👋</p>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="loginEmail" placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="loginPassword" placeholder="Enter your password" onkeypress="if(event.key==='Enter') handleLogin()">
+            </div>
+            <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;" onclick="handleLogin()">Sign In →</button>
+            <div class="modal-divider">or continue with</div>
+            <button class="modal-social-btn">
+                <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#4285F4" d="M47.5 24.6c0-1.6-.1-3.1-.4-4.6H24v8.7h13.2c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.2 7.3-10.5 7.3-17.3z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.9-6c-2.1 1.4-4.8 2.3-7.9 2.3-6.1 0-11.2-4.1-13-9.6H2.8v6.2C6.8 42.6 14.9 48 24 48z"/><path fill="#FBBC05" d="M11 28.9c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4v-6.2H2.8C1 17.5 0 20.6 0 24s1 6.5 2.8 9.1l8.2-4.2z"/><path fill="#EA4335" d="M24 9.5c3.4 0 6.5 1.2 8.9 3.5l6.6-6.6C35.9 2.4 30.5 0 24 0 14.9 0 6.8 5.4 2.8 13.4l8.2 5.1C12.8 13.6 17.9 9.5 24 9.5z"/></svg>
+                Continue with Google
+            </button>
+            <div class="modal-footer-link">New creator? <a onclick="switchTab('signup')">Create Account</a></div>
+        </div>
+
+        <!-- Signup Form -->
+        <div id="formSignup" style="display:none;">
+            <p class="modal-sub" style="margin-bottom:24px;">Start earning from day one 🚀</p>
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="signupUsername" placeholder="Rahul Sharma">
+            </div>
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="signupEmail" placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+                <label>UPI ID <span style="color:var(--text-light);font-weight:500;">(for payouts)</span></label>
+                <input type="text" id="signupUpi" placeholder="yourname@upi">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="signupPassword" placeholder="Min 8 characters">
+            </div>
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <input type="password" id="signupConfirm" placeholder="Repeat password" onkeypress="if(event.key==='Enter') handleSignup()">
+            </div>
+            <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;" onclick="handleSignup()">Create Account & Start Earning →</button>
+            <div class="modal-footer-link">Already a member? <a onclick="switchTab('login')">Sign In</a></div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────────────────── SCRIPTS ──────────────────── -->
+<script src="/js/config.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    /* Modal */
+    function openModal(tab) {
+        document.getElementById('authModal').classList.add('open');
+        switchTab(tab || 'login');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+        document.getElementById('authModal').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    function switchTab(tab) {
+        const isLogin = tab === 'login';
+        document.getElementById('formLogin').style.display  = isLogin ? 'block' : 'none';
+        document.getElementById('formSignup').style.display = isLogin ? 'none'  : 'block';
+        document.getElementById('tabLogin').classList.toggle('active', isLogin);
+        document.getElementById('tabSignup').classList.toggle('active', !isLogin);
+    }
+    document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
+
+    /* Smooth anchor scrolling for nav */
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            const t = document.querySelector(a.getAttribute('href'));
+            if (t) t.scrollIntoView({ behavior: 'smooth' });
+        });
+    });
+
+    /* Earnings Calculator */
+    function calcEarnings() {
+        const views = parseInt(document.getElementById('viewsSlider').value);
+        const cpm   = parseFloat(document.getElementById('cpmSlider').value);
+        const earn  = ((views / 1000) * cpm).toFixed(0);
+        document.getElementById('viewsLabel').textContent = Number(views).toLocaleString('en-IN');
+        document.getElementById('cpmLabel').textContent   = '₹' + cpm;
+        document.getElementById('calcOutput').textContent = '₹' + Number(earn).toLocaleString('en-IN');
+    }
+    calcEarnings();
+
+    /* Redirect if already logged in */
+    if (localStorage.getItem('token')) {
+        window.location.href = '/dashboard.html';
+    }
+
+    /* Intersection observer – animate cards on scroll */
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+            if (e.isIntersecting) {
+                e.target.style.opacity = '1';
+                e.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.step-card, .feature-card, .testi-card').forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(32px)';
+        el.style.transition = 'opacity .5s ease, transform .5s ease';
+        observer.observe(el);
+    });
+</script>
+</body>
+</html>
