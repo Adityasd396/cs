@@ -200,10 +200,13 @@ def convert_to_hls(file_id, current_user_id, filepath, original_filename, iv_bas
             
             ffmpeg_cmd = [
                 'ffmpeg', '-y', '-i', temp_decrypted_path,
-                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
+                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '26',
                 '-vf', 'scale=-2:720,format=yuv420p',
-                '-c:a', 'aac', '-b:a', '128k',
-                '-start_number', '0', '-hls_time', '10', '-hls_list_size', '0',
+                '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
+                '-g', '48', '-keyint_min', '48', '-sc_threshold', '0',
+                '-start_number', '0', '-hls_time', '4', '-hls_list_size', '0',
+                '-hls_segment_type', 'mpegts',
+                '-hls_allow_cache', '1',
                 '-f', 'hls', playlist_path
             ]
             
@@ -454,26 +457,91 @@ def share_download(token):
     if share[2] and (not data.get('password') or not check_password_hash(share[2], data['password'])):
         return jsonify({'message': 'Password required'}), 401
     
-    cursor.execute('SELECT filename, path, iv, is_encrypted, type FROM files WHERE id = ?', (share[1],))
+    cursor.execute('SELECT filename, path, iv, is_encrypted, type, size FROM files WHERE id = ?', (share[1],))
     f = cursor.fetchone()
     
     try:
         if not f[3]: # Not encrypted
             return send_file(f[1], as_attachment=not request.args.get('preview'), download_name=f[0], mimetype=f[4])
         
-        # Encrypted: Decrypt on the fly
-        iv = base64.b64decode(f[2])
+        # Encrypted: Decrypt on the fly with Range support
+        file_path = f[1]
+        file_size = f[5]
+        initial_iv = base64.b64decode(f[2])
+        
+        range_header = request.headers.get('Range', None)
+        if range_header and file_size:
+            # Parse Range: bytes=start-end
+            try:
+                byte_range = range_header.replace('bytes=', '').split('-')
+                start = int(byte_range[0])
+                end = int(byte_range[1]) if byte_range[1] else file_size - 1
+            except:
+                return jsonify({'message': 'Invalid range'}), 416
+
+            if start >= file_size:
+                return jsonify({'message': 'Range out of bounds'}), 416
+
+            # To decrypt at 'start' in CTR mode, we need the counter at that offset
+            # Counter increments every 16 bytes (block size)
+            block_index = start // 16
+            offset_in_block = start % 16
+            
+            # Re-calculate counter for the target block
+            iv_int = int.from_bytes(initial_iv, 'big')
+            new_iv = (iv_int + block_index).to_bytes(16, 'big')
+            
+            def generate_range():
+                cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(new_iv), backend=default_backend())
+                decryptor = cipher.decryptor()
+                
+                with open(file_path, 'rb') as f_in:
+                    f_in.seek(block_index * 16) # Seek to start of the block
+                    
+                    bytes_to_send = end - start + 1
+                    first_chunk = True
+                    
+                    while bytes_to_send > 0:
+                        chunk = f_in.read(min(CHUNK_SIZE, bytes_to_send + (16 if first_chunk else 0)))
+                        if not chunk: break
+                        
+                        decrypted = decryptor.update(chunk)
+                        if first_chunk:
+                            # Discard bytes before the requested start offset
+                            decrypted = decrypted[offset_in_block:]
+                            first_chunk = False
+                        
+                        # Only send what was requested
+                        if len(decrypted) > bytes_to_send:
+                            decrypted = decrypted[:bytes_to_send]
+                        
+                        bytes_to_send -= len(decrypted)
+                        yield decrypted
+
+            headers = {
+                'Content-Disposition': f"{'inline' if request.args.get('preview') else 'attachment'}; filename={f[0]}",
+                'Accept-Ranges': 'bytes',
+                'Content-Range': f'bytes {start}-{end}/{file_size}',
+                'Content-Length': str(end - start + 1)
+            }
+            return Response(stream_with_context(generate_range()), status=206, headers=headers, mimetype=f[4])
+        
+        # Standard full download
         def generate():
-            cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(iv), backend=default_backend())
+            cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(initial_iv), backend=default_backend())
             decryptor = cipher.decryptor()
-            with open(f[1], 'rb') as file:
+            with open(file_path, 'rb') as file:
                 while True:
                     chunk = file.read(CHUNK_SIZE)
                     if not chunk: break
                     yield decryptor.update(chunk)
                 yield decryptor.finalize()
         
-        headers = {'Content-Disposition': f"{'inline' if request.args.get('preview') else 'attachment'}; filename={f[0]}"}
+        headers = {
+            'Content-Disposition': f"{'inline' if request.args.get('preview') else 'attachment'}; filename={f[0]}",
+            'Accept-Ranges': 'bytes',
+            'Content-Length': str(file_size)
+        }
         return Response(stream_with_context(generate()), headers=headers, mimetype=f[4])
     except Exception as e:
         log_error(f"Share download error for {token}", e)
@@ -583,30 +651,41 @@ def upload(uid):
     # Generate a unique stored name
     stored_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
     final_path = os.path.join(u_dir, stored_name)
-    
-    iv = secrets.token_bytes(16)
-    cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(iv), backend=default_backend())
-    enc = cipher.encryptor()
-    
-    sha256_hash = hashlib.sha256()
-    size = 0
+    temp_raw_path = os.path.join(u_dir, f"raw_{stored_name}")
     
     try:
-        # Write directly to the final path to avoid slow moves
-        with open(final_path, 'wb') as f:
+        # Save raw file first to optimize if it's a video
+        file.save(temp_raw_path)
+        
+        # If video, move metadata to front (moov atom) for faster playback
+        if file.content_type.startswith('video/'):
+            log_error(f"Optimizing video metadata for {filename}")
+            optimized_path = os.path.join(u_dir, f"opt_{stored_name}")
+            try:
+                subprocess.run(['ffmpeg', '-y', '-i', temp_raw_path, '-c', 'copy', '-movflags', '+faststart', optimized_path], 
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                os.remove(temp_raw_path)
+                temp_raw_path = optimized_path
+            except Exception as fe:
+                log_error(f"FFmpeg faststart failed for {filename}, continuing with original", fe)
+
+        # Encrypt the (possibly optimized) file
+        iv = secrets.token_bytes(16)
+        cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(iv), backend=default_backend())
+        enc = cipher.encryptor()
+        sha256_hash = hashlib.sha256()
+        size = 0
+
+        with open(temp_raw_path, 'rb') as f_in, open(final_path, 'wb') as f_out:
             while True:
-                # Use a large buffer for fast reading
-                chunk = file.read(CHUNK_SIZE)
+                chunk = f_in.read(CHUNK_SIZE)
                 if not chunk: break
-                
-                # Update hash with RAW data
                 sha256_hash.update(chunk)
                 size += len(chunk)
-                
-                # Write ENCRYPTED data
-                f.write(enc.update(chunk))
-            f.write(enc.finalize())
+                f_out.write(enc.update(chunk))
+            f_out.write(enc.finalize())
             
+        os.remove(temp_raw_path)
         file_hash = sha256_hash.hexdigest()
         log_error(f"File {filename} written. Size: {size} bytes. Hash: {file_hash}")
         
