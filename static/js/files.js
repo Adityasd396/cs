@@ -345,7 +345,8 @@ function openPreviewModal(fileId, filename, mimeType, hlsPath) {
                     appendErrorMaxRetry: 20,
                     startLevel: -1,
                     capLevelToPlayerSize: true,
-                    progressive: true
+                    progressive: true,
+                    testBandwidth: false
                 });
                 hls.loadSource(hlsUrl);
                 hls.attachMedia(video);
