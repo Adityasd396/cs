@@ -143,9 +143,9 @@ HLS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hls')
 os.makedirs(HLS_FOLDER, exist_ok=True)
 
 # Resource Management for FFmpeg
-# On small servers, keep this to 1 to avoid freezing the system
 MAX_CONCURRENT_CONVERSIONS = 1
 hls_semaphore = threading.Semaphore(MAX_CONCURRENT_CONVERSIONS)
+assembly_lock = threading.Lock()
 
 def get_db_connection():
     """Create SQLite database connection"""
@@ -661,81 +661,91 @@ def upload_chunk(uid):
     os.makedirs(chunk_dir, exist_ok=True)
     
     chunk_path = os.path.join(chunk_dir, f"{chunk_index}.part")
-    file.save(chunk_path)
+    
+    # Check if chunk already exists (might happen on retries)
+    if not os.path.exists(chunk_path):
+        file.save(chunk_path)
     
     # Check if this was the last chunk
-    # We use a file count check to be sure all parts exist
     parts = [f for f in os.listdir(chunk_dir) if f.endswith('.part')]
+    
     if len(parts) == total_chunks:
-        # ASSEMBLE FILE
-        log_error(f"Assembling {total_chunks} chunks for {filename} (Upload: {upload_id})")
-        
-        u_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(uid))
-        os.makedirs(u_dir, exist_ok=True)
-        stored_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-        final_path = os.path.join(u_dir, stored_name)
-        
-        iv = secrets.token_bytes(16)
-        cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(iv), backend=default_backend())
-        enc = cipher.encryptor()
-        sha256_hash = hashlib.sha256()
-        size = 0
-        
-        try:
-            with open(final_path, 'wb') as f_out:
-                for i in range(total_chunks):
-                    p = os.path.join(chunk_dir, f"{i}.part")
-                    if not os.path.exists(p):
-                        raise Exception(f"Missing chunk {i}")
-                        
-                    with open(p, 'rb') as f_in:
-                        while True:
-                            chunk_data = f_in.read(CHUNK_SIZE)
-                            if not chunk_data: break
-                            sha256_hash.update(chunk_data)
-                            size += len(chunk_data)
-                            f_out.write(enc.update(chunk_data))
-                    
-                    # Delete part immediately after reading to free space
-                    try: os.remove(p)
-                    except: pass
+        # Use a global lock to prevent multiple threads from assembling the same file
+        with assembly_lock:
+            # Re-check if assembly is still needed (another thread might have finished it)
+            if not os.path.exists(chunk_dir):
+                return jsonify({'message': 'Upload Complete (Assembled by another thread)', 'id': None}), 200
             
-            f_out.write(enc.finalize())
+            log_error(f"Assembling {total_chunks} chunks for {filename} (Upload: {upload_id})")
             
-            # Clean up empty chunk directory
-            try: shutil.rmtree(chunk_dir)
-            except: pass
+            u_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(uid))
+            os.makedirs(u_dir, exist_ok=True)
+            stored_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+            final_path = os.path.join(u_dir, stored_name)
             
-            file_hash = sha256_hash.hexdigest()
-            log_error(f"Assembly complete: {filename}, Size: {size}, Hash: {file_hash}")
+            iv = secrets.token_bytes(16)
+            cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(iv), backend=default_backend())
+            enc = cipher.encryptor()
+            sha256_hash = hashlib.sha256()
+            size = 0
             
-            # Database record (Deduplication Check)
-            conn = get_db_connection(); cursor = conn.cursor()
             try:
-                cursor.execute('SELECT stored_filename, path, iv, hls_path FROM files WHERE file_hash = ? AND size = ? LIMIT 1', (file_hash, size))
-                existing = cursor.fetchone()
+                with open(final_path, 'wb') as f_out:
+                    for i in range(total_chunks):
+                        p = os.path.join(chunk_dir, f"{i}.part")
+                        if not os.path.exists(p):
+                            raise Exception(f"Missing chunk {i} during assembly")
+                            
+                        with open(p, 'rb') as f_in:
+                            while True:
+                                chunk_data = f_in.read(CHUNK_SIZE)
+                                if not chunk_data: break
+                                sha256_hash.update(chunk_data)
+                                size += len(chunk_data)
+                                f_out.write(enc.update(chunk_data))
+                        
+                        # Delete part immediately after reading to free space
+                        try: os.remove(p)
+                        except: pass
                 
-                if existing:
-                    # Deduplicate: use existing file on disk
-                    os.remove(final_path)
-                    stored_name, existing_path, existing_iv, hls_path = existing
-                    cursor.execute('INSERT INTO files (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, hls_path, file_hash) VALUES (?,?,?,?,?,?,?,?,?,?)',
-                                 (uid, filename, stored_name, size, content_type, existing_path, 1, existing_iv, hls_path, file_hash))
-                else:
-                    # New file
-                    cursor.execute('INSERT INTO files (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, file_hash) VALUES (?,?,?,?,?,?,?,?,?)',
-                                 (uid, filename, stored_name, size, content_type, final_path, 1, base64.b64encode(iv).decode(), file_hash))
+                f_out.write(enc.finalize())
                 
-                fid = cursor.lastrowid
-                conn.commit()
+                # Clean up empty chunk directory
+                try: shutil.rmtree(chunk_dir)
+                except: pass
                 
-                # Start HLS if video
+                file_hash = sha256_hash.hexdigest()
+                log_error(f"Assembly complete: {filename}, Size: {size}, Hash: {file_hash}")
+                
+                # Database record (Deduplication Check)
+                conn = get_db_connection(); cursor = conn.cursor()
+                try:
+                    cursor.execute('SELECT stored_filename, path, iv, hls_path FROM files WHERE file_hash = ? AND size = ? LIMIT 1', (file_hash, size))
+                    existing = cursor.fetchone()
+                    
+                    if existing:
+                        # Deduplicate: use existing file on disk
+                        os.remove(final_path)
+                        stored_name, existing_path, existing_iv, hls_path = existing
+                        cursor.execute('INSERT INTO files (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, hls_path, file_hash) VALUES (?,?,?,?,?,?,?,?,?,?)',
+                                     (uid, filename, stored_name, size, content_type, existing_path, 1, existing_iv, hls_path, file_hash))
+                    else:
+                        # New file
+                        cursor.execute('INSERT INTO files (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, file_hash) VALUES (?,?,?,?,?,?,?,?,?)',
+                                     (uid, filename, stored_name, size, content_type, final_path, 1, base64.b64encode(iv).decode(), file_hash))
+                    
+                    fid = cursor.lastrowid
+                    conn.commit()
+                    
+                    # Start HLS if video
                 if content_type.startswith('video/'):
                     p_to_conv = final_path if not existing else existing[1]
                     iv_to_use = base64.b64encode(iv).decode() if not existing else existing[2]
                     threading.Thread(target=convert_to_hls, args=(fid, uid, p_to_conv, filename, iv_to_use)).start()
                 
-                return jsonify({'message': 'Upload Complete', 'id': fid}), 201
+                resp = jsonify({'message': 'Upload Complete', 'id': fid})
+                resp.headers['Connection'] = 'close'
+                return resp, 201
             finally:
                 cursor.close(); conn.close()
                 
