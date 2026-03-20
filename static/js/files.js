@@ -58,110 +58,47 @@ async function uploadFile() {
     uploadBtn.disabled = true;
     uploadBtn.textContent = 'Uploading...';
     progressContainer.style.display = 'block';
-    
-    // Initial state
-    uploadText.style.display = 'none'; // Hide selection text during upload
+    uploadText.style.display = 'none';
 
     let successCount = 0;
     let failCount = 0;
 
-    const CHUNK_SIZE = 20 * 1024 * 1024; // 20MB chunks
-    const MAX_PARALLEL_CHUNKS = 4; // Increased from 2 for faster uploads
-    const MAX_RETRIES = 3; // Retry failed chunks
-
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        if (file.size === 0) {
-            showNotification(`Skipping empty file: ${file.name}`, 'error');
-            continue;
-        }
+        const formData = new FormData();
+        formData.append('file', file);
+        if (currentFolderId) formData.append('folder_id', currentFolderId);
 
-        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-        const uploadId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-        let uploadedChunks = 0;
-        let chunkProgress = {}; // Track progress of each chunk
-
-        const uploadChunk = async (chunkIndex, retryCount = 0) => {
-            const start = chunkIndex * CHUNK_SIZE;
-            const end = Math.min(start + CHUNK_SIZE, file.size);
-            const chunk = file.slice(start, end);
-
-            const formData = new FormData();
-            formData.append('file', chunk);
-            formData.append('filename', file.name);
-            formData.append('upload_id', uploadId);
-            formData.append('chunk_index', chunkIndex);
-            formData.append('total_chunks', totalChunks);
-            formData.append('content_type', file.type);
-            if (currentFolderId) formData.append('folder_id', currentFolderId);
-
-            return new Promise((resolve, reject) => {
+        try {
+            await new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 
                 xhr.upload.addEventListener('progress', (e) => {
                     if (e.lengthComputable) {
-                        chunkProgress[chunkIndex] = e.loaded;
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        progressFill.style.width = percent + '%';
+                        progressText.textContent = `Uploading ${i + 1}/${files.length}: ${percent}%`;
                         
-                        // Calculate total progress accurately
-                        let totalUploaded = Object.values(chunkProgress).reduce((a, b) => a + b, 0);
-                        const overallPercent = Math.min(Math.round((totalUploaded / file.size) * 100), 99);
-                        
-                        progressFill.style.width = overallPercent + '%';
-                        progressText.textContent = `Uploading ${i + 1}/${files.length}: ${overallPercent}%`;
+                        if (percent === 100) {
+                            progressText.textContent = `Processing ${i + 1}/${files.length}: Encrypting and saving...`;
+                        }
                     }
                 });
 
                 xhr.addEventListener('load', () => {
                     if (xhr.status === 201 || xhr.status === 200) {
-                        uploadedChunks++;
-                        chunkProgress[chunkIndex] = end - start; // Ensure it's fully marked as uploaded
-                        
-                        if (uploadedChunks === totalChunks) {
-                            progressFill.style.width = '100%';
-                            progressText.textContent = `Processing ${i + 1}/${files.length}: Finalizing on server...`;
-                        }
+                        successCount++;
                         resolve();
                     } else {
-                        if (retryCount < MAX_RETRIES) {
-                            console.warn(`Chunk ${chunkIndex} failed, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
-                            setTimeout(() => resolve(uploadChunk(chunkIndex, retryCount + 1)), 1000);
-                        } else {
-                            reject(new Error(`Chunk ${chunkIndex} failed after ${MAX_RETRIES} retries`));
-                        }
+                        reject(new Error('Upload failed'));
                     }
                 });
 
-                xhr.addEventListener('error', () => {
-                    if (retryCount < MAX_RETRIES) {
-                        setTimeout(() => resolve(uploadChunk(chunkIndex, retryCount + 1)), 1000);
-                    } else {
-                        reject(new Error('Network error'));
-                    }
-                });
-
-                xhr.open('POST', `${API_URL}/files/upload/chunk`);
+                xhr.addEventListener('error', () => reject(new Error('Network error')));
+                xhr.open('POST', `${API_URL}/files/upload`);
                 xhr.setRequestHeader('Authorization', `Bearer ${token}`);
                 xhr.send(formData);
             });
-        };
-
-        // Parallel chunk processing with accurate progress tracking
-        const queue = Array.from({ length: totalChunks }, (_, i) => i);
-        const workers = Array(Math.min(MAX_PARALLEL_CHUNKS, totalChunks)).fill(null).map(async () => {
-            while (queue.length > 0) {
-                const chunkIndex = queue.shift();
-                try {
-                    await uploadChunk(chunkIndex);
-                } catch (e) {
-                    queue.length = 0; // Stop further chunks if one fails completely
-                    throw e;
-                }
-            }
-        });
-
-        try {
-            await Promise.all(workers);
-            successCount++;
         } catch (error) {
             console.error(error);
             failCount++;
@@ -176,7 +113,6 @@ async function uploadFile() {
     uploadBtn.textContent = 'Upload File';
     fileInput.value = '';
     
-    // Restore selection text area with default message
     uploadText.style.display = 'block';
     uploadText.innerHTML = 'Drag and drop or <strong>click to browse</strong>';
 
@@ -185,7 +121,7 @@ async function uploadFile() {
         loadFiles();
         loadStats();
     } else if (failCount > 0) {
-        showNotification('All uploads failed. Please try again.', 'error');
+        showNotification('Upload failed. Check server logs or try smaller files.', 'error');
     }
 }
 
