@@ -107,7 +107,7 @@ else:
     app.config['ENCRYPTION_KEY'] = _raw_key.ljust(32, b'\0')[:32]
 
 # Constants for chunked encryption
-CHUNK_SIZE = 256 * 1024 
+CHUNK_SIZE = 512 * 1024 
 IV_SIZE = 16
 
 def get_mimetype(filename):
@@ -656,15 +656,20 @@ def upload_chunk(uid):
     filename = secure_filename(request.form.get('filename'))
     content_type = request.form.get('content_type')
     
+    # Store chunks in a subfolder named by upload_id
     chunk_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'chunks', upload_id)
     os.makedirs(chunk_dir, exist_ok=True)
     
     chunk_path = os.path.join(chunk_dir, f"{chunk_index}.part")
     file.save(chunk_path)
     
-    # Check if all chunks have arrived
-    if len(os.listdir(chunk_dir)) == total_chunks:
-        # Assemble file
+    # Check if this was the last chunk
+    # We use a file count check to be sure all parts exist
+    parts = [f for f in os.listdir(chunk_dir) if f.endswith('.part')]
+    if len(parts) == total_chunks:
+        # ASSEMBLE FILE
+        log_error(f"Assembling {total_chunks} chunks for {filename} (Upload: {upload_id})")
+        
         u_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(uid))
         os.makedirs(u_dir, exist_ok=True)
         stored_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
@@ -680,6 +685,9 @@ def upload_chunk(uid):
             with open(final_path, 'wb') as f_out:
                 for i in range(total_chunks):
                     p = os.path.join(chunk_dir, f"{i}.part")
+                    if not os.path.exists(p):
+                        raise Exception(f"Missing chunk {i}")
+                        
                     with open(p, 'rb') as f_in:
                         while True:
                             chunk_data = f_in.read(CHUNK_SIZE)
@@ -687,39 +695,56 @@ def upload_chunk(uid):
                             sha256_hash.update(chunk_data)
                             size += len(chunk_data)
                             f_out.write(enc.update(chunk_data))
-                    os.remove(p) # Delete part after assembly
-                f_out.write(enc.finalize())
+                    
+                    # Delete part immediately after reading to free space
+                    try: os.remove(p)
+                    except: pass
             
-            os.rmdir(chunk_dir)
+            f_out.write(enc.finalize())
+            
+            # Clean up empty chunk directory
+            try: shutil.rmtree(chunk_dir)
+            except: pass
+            
             file_hash = sha256_hash.hexdigest()
+            log_error(f"Assembly complete: {filename}, Size: {size}, Hash: {file_hash}")
             
             # Database record (Deduplication Check)
             conn = get_db_connection(); cursor = conn.cursor()
             try:
                 cursor.execute('SELECT stored_filename, path, iv, hls_path FROM files WHERE file_hash = ? AND size = ? LIMIT 1', (file_hash, size))
                 existing = cursor.fetchone()
+                
                 if existing:
+                    # Deduplicate: use existing file on disk
                     os.remove(final_path)
+                    stored_name, existing_path, existing_iv, hls_path = existing
                     cursor.execute('INSERT INTO files (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, hls_path, file_hash) VALUES (?,?,?,?,?,?,?,?,?,?)',
-                                 (uid, filename, existing[0], size, content_type, existing[1], 1, existing[2], existing[3], file_hash))
+                                 (uid, filename, stored_name, size, content_type, existing_path, 1, existing_iv, hls_path, file_hash))
                 else:
+                    # New file
                     cursor.execute('INSERT INTO files (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, file_hash) VALUES (?,?,?,?,?,?,?,?,?)',
                                  (uid, filename, stored_name, size, content_type, final_path, 1, base64.b64encode(iv).decode(), file_hash))
                 
                 fid = cursor.lastrowid
                 conn.commit()
                 
+                # Start HLS if video
                 if content_type.startswith('video/'):
-                    threading.Thread(target=convert_to_hls, args=(fid, uid, final_path if not existing else existing[1], filename, base64.b64encode(iv).decode() if not existing else existing[2])).start()
+                    p_to_conv = final_path if not existing else existing[1]
+                    iv_to_use = base64.b64encode(iv).decode() if not existing else existing[2]
+                    threading.Thread(target=convert_to_hls, args=(fid, uid, p_to_conv, filename, iv_to_use)).start()
                 
                 return jsonify({'message': 'Upload Complete', 'id': fid}), 201
             finally:
                 cursor.close(); conn.close()
+                
         except Exception as e:
-            log_error(f"Assembly error for {filename}", e)
-            return jsonify({'message': 'Assembly failed'}), 500
+            if os.path.exists(final_path): os.remove(final_path)
+            log_error(f"Assembly failed for {filename}", e)
+            return jsonify({'message': f'Assembly failed: {str(e)}'}), 500
             
-    return jsonify({'message': f'Chunk {chunk_index} received'}), 200
+    return jsonify({'message': f'Chunk {chunk_index} accepted'}), 200
 
 # SHARE ROUTES
 @app.route('/api/shares', methods=['GET'])
