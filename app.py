@@ -96,8 +96,80 @@ def log_error(message, error=None):
     try:
         with open('app.log', 'a') as f:
             f.write(error_msg + '\n')
-            if error and hasattr(error, '__traceback__'):
-                import traceback
+    except: pass
+
+class DecryptedFileAdapter:
+    """Adapts an encrypted file to a standard file-like object with seek/tell support for Range requests."""
+    def __init__(self, file_path, initial_iv, encryption_key):
+        self.file_path = file_path
+        self.initial_iv = initial_iv
+        self.encryption_key = encryption_key
+        self.size = os.path.getsize(file_path)
+        self.pos = 0
+        self.f = open(file_path, 'rb')
+        self.cipher = None
+        self.decryptor = None
+        self.current_block_index = -1
+        self._init_cipher(0)
+
+    def _init_cipher(self, block_index):
+        if self.current_block_index == block_index and self.decryptor:
+            return
+        
+        iv_int = int.from_bytes(self.initial_iv, 'big')
+        new_iv = (iv_int + block_index).to_bytes(16, 'big')
+        
+        self.cipher = Cipher(algorithms.AES(self.encryption_key), modes.CTR(new_iv), backend=default_backend())
+        self.decryptor = self.cipher.decryptor()
+        self.current_block_index = block_index
+        self.f.seek(block_index * 16)
+
+    def read(self, size=-1):
+        if size == 0: return b""
+        if self.pos >= self.size: return b""
+        
+        if size < 0: size = self.size - self.pos
+        else: size = min(size, self.size - self.pos)
+
+        block_index = self.pos // 16
+        offset_in_block = self.pos % 16
+        
+        # If we jumped or just started, re-init cipher
+        self._init_cipher(block_index)
+        
+        # If we are in the middle of a block after a seek, handle it
+        bytes_to_read = size + offset_in_block
+        raw_data = self.f.read(bytes_to_read)
+        if not raw_data: return b""
+        
+        decrypted = self.decryptor.update(raw_data)
+        result = decrypted[offset_in_block:]
+        
+        self.pos += len(result)
+        # Update current block index for next sequential read
+        self.current_block_index = self.pos // 16
+        return result
+
+    def seek(self, offset, whence=os.SEEK_SET):
+        if whence == os.SEEK_SET: self.pos = offset
+        elif whence == os.SEEK_CUR: self.pos += offset
+        elif whence == os.SEEK_END: self.pos = self.size + offset
+        self.pos = max(0, min(self.pos, self.size))
+        return self.pos
+
+    def tell(self): return self.pos
+    def close(self): self.f.close()
+    def __enter__(self): return self
+    def __exit__(self, *args): self.close()
+    
+    # Required for Flask's send_file range support
+    @property
+    def name(self): return self.file_path
+    def __iter__(self): return self
+    def __next__(self):
+        data = self.read(CHUNK_SIZE)
+        if not data: raise StopIteration
+        return data
                 traceback.print_exc(file=f)
     except:
         pass # If we can't write to log file, just ignore
@@ -429,22 +501,19 @@ def manage_file(uid, file_id):
     # GET (Download/Preview)
     try:
         if not f[3]: # Not encrypted
-            return send_file(f[1], as_attachment=not request.args.get('preview'), download_name=f[0], mimetype=f[5])
+            return send_file(f[1], as_attachment=not request.args.get('preview'), download_name=f[0], mimetype=f[4], conditional=True)
         
-        # Encrypted: Decrypt on the fly
-        iv = base64.b64decode(f[2])
-        def generate():
-            cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(iv), backend=default_backend())
-            decryptor = cipher.decryptor()
-            with open(f[1], 'rb') as file:
-                while True:
-                    chunk = file.read(CHUNK_SIZE)
-                    if not chunk: break
-                    yield decryptor.update(chunk)
-                yield decryptor.finalize()
+        # Encrypted: Decrypt on the fly with full seek/range support
+        initial_iv = base64.b64decode(f[2])
+        adapter = DecryptedFileAdapter(f[1], initial_iv, app.config['ENCRYPTION_KEY'])
         
-        headers = {'Content-Disposition': f"{'inline' if request.args.get('preview') else 'attachment'}; filename={f[0]}"}
-        return Response(stream_with_context(generate()), headers=headers, mimetype=f[5])
+        return send_file(
+            adapter,
+            as_attachment=not request.args.get('preview'),
+            download_name=f[0],
+            mimetype=f[4],
+            conditional=True
+        )
     except Exception as e:
         log_error(f"Download error for {file_id}", e)
         return jsonify({'message': 'Download failed'}), 500
@@ -467,85 +536,17 @@ def share_download(token):
         if not f[3]: # Not encrypted
             return send_file(f[1], as_attachment=not request.args.get('preview'), download_name=f[0], mimetype=f[4], conditional=True)
         
-        # Encrypted: Decrypt on the fly with Range support
-        file_path = f[1]
-        file_size = f[5]
+        # Encrypted: Decrypt on the fly with full seek/range support
         initial_iv = base64.b64decode(f[2])
+        adapter = DecryptedFileAdapter(f[1], initial_iv, app.config['ENCRYPTION_KEY'])
         
-        range_header = request.headers.get('Range', None)
-        if range_header and file_size:
-            # Parse Range: bytes=start-end
-            try:
-                byte_range = range_header.replace('bytes=', '').split('-')
-                start = int(byte_range[0])
-                end = int(byte_range[1]) if byte_range[1] else file_size - 1
-            except:
-                return jsonify({'message': 'Invalid range'}), 416
-
-            if start >= file_size:
-                return jsonify({'message': 'Range out of bounds'}), 416
-
-            # To decrypt at 'start' in CTR mode, we need the counter at that offset
-            # Counter increments every 16 bytes (block size)
-            block_index = start // 16
-            offset_in_block = start % 16
-            
-            # Re-calculate counter for the target block
-            iv_int = int.from_bytes(initial_iv, 'big')
-            new_iv = (iv_int + block_index).to_bytes(16, 'big')
-            
-            def generate_range():
-                cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(new_iv), backend=default_backend())
-                decryptor = cipher.decryptor()
-                
-                with open(file_path, 'rb') as f_in:
-                    f_in.seek(block_index * 16) # Seek to start of the block
-                    
-                    bytes_to_send = end - start + 1
-                    first_chunk = True
-                    
-                    while bytes_to_send > 0:
-                        chunk = f_in.read(min(CHUNK_SIZE, bytes_to_send + (16 if first_chunk else 0)))
-                        if not chunk: break
-                        
-                        decrypted = decryptor.update(chunk)
-                        if first_chunk:
-                            # Discard bytes before the requested start offset
-                            decrypted = decrypted[offset_in_block:]
-                            first_chunk = False
-                        
-                        # Only send what was requested
-                        if len(decrypted) > bytes_to_send:
-                            decrypted = decrypted[:bytes_to_send]
-                        
-                        bytes_to_send -= len(decrypted)
-                        yield decrypted
-
-            headers = {
-                'Content-Disposition': f"{'inline' if request.args.get('preview') else 'attachment'}; filename={f[0]}",
-                'Accept-Ranges': 'bytes',
-                'Content-Range': f'bytes {start}-{end}/{file_size}',
-                'Content-Length': str(end - start + 1)
-            }
-            return Response(stream_with_context(generate_range()), status=206, headers=headers, mimetype=f[4])
-        
-        # Standard full download
-        def generate():
-            cipher = Cipher(algorithms.AES(app.config['ENCRYPTION_KEY']), modes.CTR(initial_iv), backend=default_backend())
-            decryptor = cipher.decryptor()
-            with open(file_path, 'rb') as file:
-                while True:
-                    chunk = file.read(CHUNK_SIZE)
-                    if not chunk: break
-                    yield decryptor.update(chunk)
-                yield decryptor.finalize()
-        
-        headers = {
-            'Content-Disposition': f"{'inline' if request.args.get('preview') else 'attachment'}; filename={f[0]}",
-            'Accept-Ranges': 'bytes',
-            'Content-Length': str(file_size)
-        }
-        return Response(stream_with_context(generate()), headers=headers, mimetype=f[4])
+        return send_file(
+            adapter,
+            as_attachment=not request.args.get('preview'),
+            download_name=f[0],
+            mimetype=f[4],
+            conditional=True
+        )
     except Exception as e:
         log_error(f"Share download error for {token}", e)
         return jsonify({'message': 'Download failed'}), 500
@@ -1057,7 +1058,7 @@ def admin_block(uid, user_id):
 # SERVE HLS
 @app.route('/hls/<int:file_id>/<path:filename>')
 def serve_hls(file_id, filename):
-    return send_from_directory(os.path.join(HLS_FOLDER, str(file_id)), filename)
+    return send_from_directory(os.path.join(HLS_FOLDER, str(file_id)), filename, conditional=True)
 
 # STATIC & SHARE PAGE
 @app.route('/', defaults={'path': ''})
