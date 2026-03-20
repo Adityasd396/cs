@@ -113,16 +113,11 @@ class DecryptedFileAdapter:
         self._init_cipher(0)
 
     def _init_cipher(self, block_index):
-        if self.current_block_index == block_index and self.decryptor:
-            return
-        
         iv_int = int.from_bytes(self.initial_iv, 'big')
         new_iv = (iv_int + block_index).to_bytes(16, 'big')
-        
         self.cipher = Cipher(algorithms.AES(self.encryption_key), modes.CTR(new_iv), backend=default_backend())
         self.decryptor = self.cipher.decryptor()
         self.current_block_index = block_index
-        self.f.seek(block_index * 16)
 
     def read(self, size=-1):
         if size == 0: return b""
@@ -134,20 +129,18 @@ class DecryptedFileAdapter:
         block_index = self.pos // 16
         offset_in_block = self.pos % 16
         
-        # If we jumped or just started, re-init cipher
+        # Always re-init for every read to ensure sync between file and cipher state
         self._init_cipher(block_index)
         
-        # If we are in the middle of a block after a seek, handle it
-        bytes_to_read = size + offset_in_block
-        raw_data = self.f.read(bytes_to_read)
+        # Seek and read block-aligned data
+        self.f.seek(block_index * 16)
+        raw_data = self.f.read(size + offset_in_block)
         if not raw_data: return b""
         
         decrypted = self.decryptor.update(raw_data)
-        result = decrypted[offset_in_block:]
+        result = decrypted[offset_in_block:offset_in_block + size]
         
         self.pos += len(result)
-        # Update current block index for next sequential read
-        self.current_block_index = self.pos // 16
         return result
 
     def seek(self, offset, whence=os.SEEK_SET):
@@ -275,9 +268,9 @@ def convert_to_hls(file_id, current_user_id, filepath, original_filename, iv_bas
                 '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '26',
                 '-vf', 'scale=-2:720,format=yuv420p',
                 '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
-                '-force_key_frames', 'expr:gte(t,n_forced*2)',
+                '-force_key_frames', 'expr:gte(t,n_forced*1)',
                 '-sc_threshold', '0',
-                '-start_number', '0', '-hls_time', '2', '-hls_list_size', '0',
+                '-start_number', '0', '-hls_time', '1', '-hls_list_size', '0',
                 '-hls_segment_type', 'mpegts',
                 '-hls_flags', 'independent_segments',
                 '-hls_playlist_type', 'vod',
