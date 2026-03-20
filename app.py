@@ -558,8 +558,12 @@ def list_files(uid):
 @app.route('/api/files/upload', methods=['POST'])
 @token_required
 def upload(uid):
-    file = request.files['file']
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'message': 'No file provided'}), 400
+        
     filename = secure_filename(file.filename)
+    log_error(f"Starting upload for {filename} (User {uid})")
     
     # Use a temporary file to calculate hash while encrypting
     temp_name = f"temp_{secrets.token_hex(8)}"
@@ -587,57 +591,61 @@ def upload(uid):
             f.write(enc.finalize())
             
         file_hash = sha256_hash.hexdigest()
+        log_error(f"File {filename} received. Size: {size} bytes. Hash: {file_hash}")
         
-        # Check for deduplication - Try to find a record that already has HLS if possible
+        # Check for deduplication
         conn = get_db_connection(); cursor = conn.cursor()
-        cursor.execute('''SELECT stored_filename, path, iv, hls_path FROM files 
-                       WHERE file_hash = ? AND size = ? 
-                       ORDER BY hls_path DESC LIMIT 1''', 
-                     (file_hash, size))
-        existing = cursor.fetchone()
-        
-        if existing:
-            # Deduplicate! Delete temp file and use existing info
-            os.remove(temp_path)
-            stored_name, path, existing_iv, hls_path = existing
-            log_error(f"Deduplicated file upload: {filename} (User {uid}) -> points to {stored_name}")
+        try:
+            cursor.execute('''SELECT stored_filename, path, iv, hls_path FROM files 
+                           WHERE file_hash = ? AND size = ? 
+                           ORDER BY hls_path DESC LIMIT 1''', 
+                         (file_hash, size))
+            existing = cursor.fetchone()
+            
+            if existing:
+                # Deduplicate! Delete temp file and use existing info
+                os.remove(temp_path)
+                stored_name, path, existing_iv, hls_path = existing
+                log_error(f"Deduplicated upload: {filename} -> {stored_name}")
+                
+                cursor.execute('''INSERT INTO files 
+                               (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, hls_path, file_hash) 
+                               VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                             (uid, filename, stored_name, size, file.content_type, path, 1, existing_iv, hls_path, file_hash))
+                fid = cursor.lastrowid
+                conn.commit()
+                
+                if file.content_type.startswith('video/') and not hls_path:
+                    threading.Thread(target=convert_to_hls, args=(fid, uid, path, filename, existing_iv)).start()
+                    
+                return jsonify({'message': 'Uploaded (Deduplicated)', 'id': fid}), 201
+            
+            # Not a duplicate: Move temp file to permanent user directory
+            stored_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+            u_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(uid))
+            os.makedirs(u_dir, exist_ok=True)
+            final_path = os.path.join(u_dir, stored_name)
+            shutil.move(temp_path, final_path)
             
             cursor.execute('''INSERT INTO files 
-                           (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, hls_path, file_hash) 
-                           VALUES (?,?,?,?,?,?,?,?,?,?)''',
-                         (uid, filename, stored_name, size, file.content_type, path, 1, existing_iv, hls_path, file_hash))
+                           (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, file_hash) 
+                           VALUES (?,?,?,?,?,?,?,?,?)''',
+                         (uid, filename, stored_name, size, file.content_type, final_path, 1, base64.b64encode(iv).decode(), file_hash))
             fid = cursor.lastrowid
             conn.commit()
+            log_error(f"File {filename} saved to {final_path}")
             
-            # If no HLS path yet, trigger conversion check
-            if file.content_type.startswith('video/') and not hls_path:
-                threading.Thread(target=convert_to_hls, args=(fid, uid, path, filename, existing_iv)).start()
+            if file.content_type.startswith('video/'):
+                threading.Thread(target=convert_to_hls, args=(fid, uid, final_path, filename, base64.b64encode(iv).decode())).start()
                 
-            return jsonify({'message': 'Uploaded (Deduplicated)', 'id': fid}), 201
-        
-        # Not a duplicate: Move temp file to permanent user directory
-        stored_name = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-        u_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(uid))
-        os.makedirs(u_dir, exist_ok=True)
-        final_path = os.path.join(u_dir, stored_name)
-        shutil.move(temp_path, final_path)
-        
-        cursor.execute('''INSERT INTO files 
-                       (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, file_hash) 
-                       VALUES (?,?,?,?,?,?,?,?,?)''',
-                     (uid, filename, stored_name, size, file.content_type, final_path, 1, base64.b64encode(iv).decode(), file_hash))
-        fid = cursor.lastrowid
-        conn.commit()
-        
-        if file.content_type.startswith('video/'):
-            threading.Thread(target=convert_to_hls, args=(fid, uid, final_path, filename, base64.b64encode(iv).decode())).start()
+            return jsonify({'message': 'Uploaded', 'id': fid}), 201
+        finally:
+            cursor.close(); conn.close()
             
-        return jsonify({'message': 'Uploaded', 'id': fid}), 201
-        
     except Exception as e:
         if os.path.exists(temp_path): os.remove(temp_path)
-        log_error("Upload error", e)
-        return jsonify({'message': 'Upload failed'}), 500
+        log_error(f"Upload error for {filename}", e)
+        return jsonify({'message': f'Upload failed: {str(e)}'}), 500
 
 # SHARE ROUTES
 @app.route('/api/shares', methods=['GET'])
