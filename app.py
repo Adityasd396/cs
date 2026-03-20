@@ -115,8 +115,8 @@ else:
         _raw_key = _raw_key.encode()
     app.config['ENCRYPTION_KEY'] = _raw_key.ljust(32, b'\0')[:32]
 
-# Constants for chunked encryption
-CHUNK_SIZE = 1024 * 1024 # 1MB buffer for faster streaming
+# Constants for streaming encryption
+CHUNK_SIZE = 4 * 1024 * 1024 # 4MB buffer for fast streaming
 IV_SIZE = 16
 
 def get_mimetype(filename):
@@ -568,11 +568,13 @@ def list_files(uid):
 @token_required
 def upload(uid):
     file = request.files.get('file')
+    folder_id = request.form.get('folder_id')
+    
     if not file:
         return jsonify({'message': 'No file provided'}), 400
         
     filename = secure_filename(file.filename)
-    log_error(f"Starting upload for {filename} (User {uid})")
+    log_error(f"Starting upload for {filename} (User {uid}, Folder {folder_id})")
     
     # Ensure user folder exists
     u_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(uid))
@@ -593,6 +595,7 @@ def upload(uid):
         # Write directly to the final path to avoid slow moves
         with open(final_path, 'wb') as f:
             while True:
+                # Use a large buffer for fast reading
                 chunk = file.read(CHUNK_SIZE)
                 if not chunk: break
                 
@@ -623,9 +626,9 @@ def upload(uid):
                 log_error(f"Deduplicated upload: {filename} -> existing {stored_name}")
                 
                 cursor.execute('''INSERT INTO files 
-                               (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, hls_path, file_hash) 
-                               VALUES (?,?,?,?,?,?,?,?,?,?)''',
-                             (uid, filename, stored_name, size, file.content_type, existing_path, 1, existing_iv, hls_path, file_hash))
+                               (user_id, folder_id, filename, stored_filename, size, type, path, is_encrypted, iv, hls_path, file_hash) 
+                               VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+                             (uid, folder_id, filename, stored_name, size, file.content_type, existing_path, 1, existing_iv, hls_path, file_hash))
                 fid = cursor.lastrowid
                 conn.commit()
                 
@@ -636,9 +639,9 @@ def upload(uid):
             
             # Not a duplicate: File is already in its final location
             cursor.execute('''INSERT INTO files 
-                           (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, file_hash) 
-                           VALUES (?,?,?,?,?,?,?,?,?)''',
-                         (uid, filename, stored_name, size, file.content_type, final_path, 1, base64.b64encode(iv).decode(), file_hash))
+                           (user_id, folder_id, filename, stored_filename, size, type, path, is_encrypted, iv, file_hash) 
+                           VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                         (uid, folder_id, filename, stored_name, size, file.content_type, final_path, 1, base64.b64encode(iv).decode(), file_hash))
             fid = cursor.lastrowid
             conn.commit()
             log_error(f"Upload complete for {filename}. Record ID: {fid}")
@@ -651,7 +654,9 @@ def upload(uid):
             cursor.close(); conn.close()
             
     except Exception as e:
-        if os.path.exists(final_path): os.remove(final_path)
+        if os.path.exists(final_path):
+            try: os.remove(final_path)
+            except: pass
         log_error(f"Upload error for {filename}", e)
         return jsonify({'message': f'Upload failed: {str(e)}'}), 500
 
