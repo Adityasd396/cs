@@ -203,9 +203,12 @@ def convert_to_hls(file_id, current_user_id, filepath, original_filename, iv_bas
                 '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '26',
                 '-vf', 'scale=-2:720,format=yuv420p',
                 '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
-                '-g', '48', '-keyint_min', '48', '-sc_threshold', '0',
-                '-start_number', '0', '-hls_time', '4', '-hls_list_size', '0',
+                '-force_key_frames', 'expr:gte(t,n_forced*2)',
+                '-sc_threshold', '0',
+                '-start_number', '0', '-hls_time', '2', '-hls_list_size', '0',
                 '-hls_segment_type', 'mpegts',
+                '-hls_flags', 'independent_segments',
+                '-hls_playlist_type', 'vod',
                 '-hls_allow_cache', '1',
                 '-f', 'hls', playlist_path
             ]
