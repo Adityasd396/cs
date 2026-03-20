@@ -876,6 +876,9 @@ body {
 }
 
 @media (max-width: 992px) {
+    .desktop-nav { display: none !important; }
+    .mobile-menu-btn { display: block !important; }
+    
     .admin-layout { 
         display: block !important; 
         grid-template-columns: none !important; 
@@ -913,40 +916,67 @@ body {
 @media (max-width: 768px) {
     .header { padding: 8px 0; }
     .mobile-menu-btn { display: block; }
+    
+    /* Navigation Menu Fix */
     .nav-buttons {
         display: none;
-        position: absolute;
-        top: 100%;
+        position: fixed;
+        top: 60px;
         left: 0;
         width: 100%;
         background: white;
         flex-direction: column;
-        padding: 16px;
-        gap: 8px;
+        padding: 24px;
+        gap: 12px;
         border-bottom: 1px solid var(--border);
-        box-shadow: var(--shadow-lg);
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
         z-index: 1001;
+        max-height: calc(100vh - 60px);
+        overflow-y: auto;
     }
     .nav-buttons.active { display: flex; }
-    .nav-btn { width: 100%; justify-content: center; padding: 12px; }
-    .user-info { width: 100%; text-align: center; margin: 8px 0; }
-    .page-title { font-size: 28px; margin-bottom: 24px; }
-    .stats-grid { grid-template-columns: 1fr; gap: 16px; }
-    .stat-card { padding: 24px; }
-    .stat-value { font-size: 28px; }
-    .main { padding-top: 24px; padding-bottom: 24px; }
-    .files-header, .section-header { flex-direction: column; align-items: stretch; gap: 16px; }
+    .nav-btn { width: 100%; justify-content: center; padding: 14px; font-size: 15px; border-radius: 8px; }
+    .user-info { width: 100%; text-align: center; margin: 12px 0; font-weight: 600; color: var(--text); padding: 8px; background: var(--bg); border-radius: 8px; }
+    
+    /* Page Layout Fixes */
+    .page-title { font-size: 26px; margin-bottom: 20px; }
+    .stats-grid { grid-template-columns: 1fr; gap: 12px; }
+    .stat-card { padding: 20px; }
+    .stat-value { font-size: 26px; }
+    .main { padding-top: 20px; padding-bottom: 40px; }
+    
+    /* Section Headers */
+    .files-header, .section-header { flex-direction: column; align-items: stretch; gap: 12px; padding: 16px; }
     .search-box { max-width: none; }
-    .section-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
-    .section-actions .btn { flex: 1; min-width: 140px; }
-    .settings-section { padding: 20px; }
-    .setting-row { flex-direction: column; align-items: flex-start; gap: 12px; }
-    .footer-content { grid-template-columns: 1fr; gap: 32px; }
+    
+    /* Action Buttons */
+    .section-actions { width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
+    .section-actions .btn { flex: 1; min-width: 140px; padding: 10px; font-size: 13px; }
+    
+    /* Modal Responsive Fixes */
+    .modal-content { width: 92% !important; margin: 10px auto !important; padding: 24px !important; border-radius: 16px !important; }
+    .modal-header { font-size: 20px !important; }
+    
+    /* Withdrawal/Settings Section Fixes */
+    .settings-section { padding: 16px; border-radius: 12px; }
+    .setting-row { flex-direction: column; align-items: stretch; gap: 12px; padding: 12px 0; }
+    .setting-label { width: 100%; margin-bottom: 4px; }
+    .setting-value { width: 100%; justify-content: flex-start; gap: 8px; }
+    .setting-value input { flex: 1; min-width: 0; }
+    .setting-value .btn { width: auto; flex-shrink: 0; }
+
+    /* Footer Fixes */
+    .footer-content { grid-template-columns: 1fr; gap: 32px; padding: 40px 0; }
+    .footer-section { text-align: center; }
+    .footer-section a { justify-content: center; }
 
     /* File Item Stack for Mobile */
     .file-item {
         flex-direction: column;
         align-items: flex-start;
+        padding: 16px;
+        gap: 16px;
+    }
         padding: 20px;
     }
 
