@@ -164,6 +164,19 @@ class DecryptedFileAdapter:
         data = self.read(CHUNK_SIZE)
         if not data: raise StopIteration
         return data
+
+def log_error_full(message, error=None):
+    """Log errors with full traceback to a file for production debugging"""
+    timestamp = get_now_ist().strftime('%Y-%m-%d %H:%M:%S')
+    error_msg = f"[{timestamp}] {message}"
+    if error:
+        error_msg += f" | Error: {str(error)}"
+    print(error_msg)
+    try:
+        with open('app.log', 'a') as f:
+            f.write(error_msg + '\n')
+            if error:
+                import traceback
                 traceback.print_exc(file=f)
     except:
         pass # If we can't write to log file, just ignore
