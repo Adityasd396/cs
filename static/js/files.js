@@ -339,15 +339,15 @@ function openPreviewModal(fileId, filename, mimeType, hlsPath) {
             } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                 // Hls.js support (Chrome/Firefox)
                 const hls = new Hls({
-                    enableWorker: true,
-                    lowLatencyMode: false, // Better for VOD seeking
-                    backBufferLength: 90,
-                    maxBufferLength: 60,
-                    maxMaxBufferLength: 120,
-                    appendErrorMaxRetry: 5,
-                    startLevel: -1,
-                    capLevelToPlayerSize: true
-                });
+                     enableWorker: true,
+                     lowLatencyMode: false, // Better for VOD seeking
+                     backBufferLength: 300,
+                     maxBufferLength: 120,
+                     maxMaxBufferLength: 300,
+                     appendErrorMaxRetry: 5,
+                     startLevel: -1,
+                     capLevelToPlayerSize: true
+                 });
                 hls.loadSource(hlsUrl);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {

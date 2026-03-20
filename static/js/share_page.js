@@ -115,6 +115,7 @@ function renderPreview() {
                 <div style="text-align: center; width: 100%; background: #000; overflow: hidden; position: relative;">
                     <video id="previewVideo" controls autoplay muted playsinline 
                            style="max-width: 100%; max-height: 600px; width: 100%; display: block; margin: 0 auto;"></video>
+                    <div id="videoBadge" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 10px; pointer-events: none;">HLS STREAMING</div>
                 </div>
             `;
             
@@ -131,9 +132,9 @@ function renderPreview() {
                 const hls = new Hls({
                     enableWorker: true,
                     lowLatencyMode: false, // Better for VOD seeking
-                    backBufferLength: 90,
-                    maxBufferLength: 60,
-                    maxMaxBufferLength: 120,
+                    backBufferLength: 300, // Preload more for smoother seeking
+                    maxBufferLength: 120,
+                    maxMaxBufferLength: 300,
                     appendErrorMaxRetry: 5,
                     startLevel: -1,
                     capLevelToPlayerSize: true
@@ -163,27 +164,19 @@ function renderPreview() {
                     }
                 });
             }
-        } else if (fileType === 'video') {
-            // Video is still being converted to HLS (Processing state)
-            previewContainer.innerHTML = `
-                <div style="text-align: center; padding: 60px; background: #f8fafc; border-radius: 12px; border: 2px dashed var(--border); width: 100%;">
-                    <div class="loading-spinner" style="margin: 0 auto 20px;"></div>
-                    <h3 style="margin-bottom: 10px; color: var(--text);">Video is Processing...</h3>
-                    <p style="color: var(--text-light); max-width: 300px; margin: 0 auto;">We are preparing this video for high-speed seeking. Please wait 1-2 minutes and refresh.</p>
-                    <button class="btn btn-primary" style="margin-top: 20px;" onclick="location.reload()">Refresh to Play</button>
-                </div>
-            `;
         } else {
             // Use direct URL for video streaming instead of blob fetching
             previewContainer.innerHTML = `
                 <div style="text-align: center; width: 100%; background: #000; overflow: hidden; position: relative;">
                     <video id="previewVideo" controls autoplay muted playsinline 
+                           preload="auto"
                            controlslist="nodownload" oncontextmenu="return false;"
                            style="max-width: 100%; max-height: 600px; width: 100%; display: block; margin: 0 auto;" 
                            poster="">
                         <source src="${previewUrl}" type="${shareData.type || 'video/mp4'}">
                         Your browser does not support video playback.
                     </video>
+                    <div id="videoBadge" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 10px; pointer-events: none;">DIRECT STREAMING (Optimizing for seeking...)</div>
                     <div id="videoError" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 10;">
                         <div style="font-size: 40px; margin-bottom: 10px;">❌</div>
                         <p>Video playback error. Refresh the page.</p>
