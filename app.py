@@ -738,12 +738,12 @@ def upload_chunk(uid):
                     conn.commit()
                     
                     # Start HLS if video
-                if content_type.startswith('video/'):
-                    p_to_conv = final_path if not existing else existing[1]
-                    iv_to_use = base64.b64encode(iv).decode() if not existing else existing[2]
-                    threading.Thread(target=convert_to_hls, args=(fid, uid, p_to_conv, filename, iv_to_use)).start()
-                
-                resp = jsonify({'message': 'Upload Complete', 'id': fid})
+                    if content_type.startswith('video/'):
+                        p_to_conv = final_path if not existing else existing[1]
+                        iv_to_use = base64.b64encode(iv).decode() if not existing else existing[2]
+                        threading.Thread(target=convert_to_hls, args=(fid, uid, p_to_conv, filename, iv_to_use)).start()
+                    
+                    resp = jsonify({'message': 'Upload Complete', 'id': fid})
                 resp.headers['Connection'] = 'close'
                 return resp, 201
             finally:
