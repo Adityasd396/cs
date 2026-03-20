@@ -65,51 +65,64 @@ async function uploadFile() {
     let successCount = 0;
     let failCount = 0;
 
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const formData = new FormData();
-        formData.append('file', file);
-        if (currentFolderId) formData.append('folder_id', currentFolderId);
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId = crypto.randomUUID();
 
-        progressText.textContent = `Uploading ${i + 1}/${files.length}: ${file.name}... 0%`;
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const start = chunkIndex * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
 
-        try {
-            await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest();
-                
-                xhr.upload.addEventListener('progress', (e) => {
-                    if (e.lengthComputable) {
-                        const percentComplete = (e.loaded / e.total) * 100;
-                        progressFill.style.width = percentComplete + '%';
-                        progressText.textContent = `Uploading ${i + 1}/${files.length}: ${Math.round(percentComplete)}%`;
-                    }
+            const formData = new FormData();
+            formData.append('file', chunk);
+            formData.append('filename', file.name);
+            formData.append('upload_id', uploadId);
+            formData.append('chunk_index', chunkIndex);
+            formData.append('total_chunks', totalChunks);
+            formData.append('content_type', file.type);
+            if (currentFolderId) formData.append('folder_id', currentFolderId);
+
+            try {
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const chunkPercent = (e.loaded / e.total) * 100;
+                            const overallPercent = ((chunkIndex / totalChunks) * 100) + (chunkPercent / totalChunks);
+                            progressFill.style.width = overallPercent + '%';
+                            if (overallPercent >= 99.9) {
+                                progressText.textContent = `Processing ${i + 1}/${files.length}: ${file.name} (Finalizing...)`;
+                            } else {
+                                progressText.textContent = `Uploading ${i + 1}/${files.length}: ${Math.round(overallPercent)}%`;
+                            }
+                        }
+                    });
+
+                    xhr.addEventListener('load', () => {
+                        if (xhr.status === 201 || xhr.status === 200) {
+                            resolve(xhr.responseText);
+                        } else {
+                            reject(new Error(`Chunk ${chunkIndex} failed: ${xhr.status}`));
+                        }
+                    });
+
+                    xhr.addEventListener('error', () => reject(new Error('Network error')));
+                    xhr.open('POST', `${API_URL}/files/upload/chunk`);
+                    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                    xhr.send(formData);
                 });
-
-                xhr.addEventListener('load', () => {
-                    if (xhr.status === 201) {
-                        successCount++;
-                        resolve();
-                    } else {
-                        failCount++;
-                        const response = JSON.parse(xhr.responseText);
-                        console.error(`Upload failed for ${file.name}:`, response.message);
-                        resolve(); // Continue to next file
-                    }
-                });
-
-                xhr.addEventListener('error', () => {
-                    failCount++;
-                    reject(new Error(`Network error uploading ${file.name}`));
-                });
-
-                xhr.open('POST', `${API_URL}/files/upload`);
-                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-                xhr.send(formData);
-            });
-        } catch (error) {
-            console.error(error);
-            failCount++;
+            } catch (error) {
+                console.error(error);
+                failCount++;
+                break; // Stop uploading this file
+            }
         }
+        successCount++;
     }
 
     // Completion UI logic
