@@ -124,7 +124,10 @@ function renderPreview() {
             const hls = new Hls({
                 enableWorker: true,
                 lowLatencyMode: false,
-                backBufferLength: 90
+                backBufferLength: 90,
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+                appendErrorMaxRetry: 3
             });
             hls.loadSource(hlsUrl);
             hls.attachMedia(video);
@@ -150,6 +153,16 @@ function renderPreview() {
                     }
                 }
             });
+        } else if (fileType === 'video') {
+            // Video is still processing
+            previewContainer.innerHTML = `
+                <div style="text-align: center; padding: 60px; background: #f8fafc; border-radius: 12px; border: 2px dashed var(--border); width: 100%;">
+                    <div class="loading-spinner" style="margin: 0 auto 20px;"></div>
+                    <h3 style="margin-bottom: 10px; color: var(--text);">Video is Processing...</h3>
+                    <p style="color: var(--text-light); max-width: 300px; margin: 0 auto;">We are preparing this video for high-speed streaming. Please check back in a few minutes.</p>
+                    <button class="btn btn-primary" style="margin-top: 20px;" onclick="location.reload()">Refresh Page</button>
+                </div>
+            `;
         } else {
             // Use direct URL for video streaming instead of blob fetching
             previewContainer.innerHTML = `

@@ -335,7 +335,10 @@ function openPreviewModal(fileId, filename, mimeType, hlsPath) {
             const hls = new Hls({
                 enableWorker: true,
                 lowLatencyMode: false,
-                backBufferLength: 90
+                backBufferLength: 90,
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+                appendErrorMaxRetry: 3
             });
             hls.loadSource(hlsUrl);
             hls.attachMedia(video);
@@ -366,8 +369,18 @@ function openPreviewModal(fileId, filename, mimeType, hlsPath) {
                     closePreviewModal();
                 }
             };
+        } else if (fileType === 'video') {
+            // Video is still processing
+            previewContent.innerHTML = `
+                <div style="text-align: center; padding: 60px; background: #f8fafc; border-radius: 12px; border: 2px dashed var(--border);">
+                    <div class="loading-spinner" style="margin: 0 auto 20px;"></div>
+                    <h3 style="margin-bottom: 10px; color: var(--text);">Video is Processing...</h3>
+                    <p style="color: var(--text-light); max-width: 300px; margin: 0 auto;">We are preparing this video for high-speed streaming. Please check back in a few minutes.</p>
+                    <button class="btn btn-primary" style="margin-top: 20px;" onclick="location.reload()">Refresh Page</button>
+                </div>
+            `;
         } else {
-            // Fallback to direct video file streaming
+            // Fallback to direct video file streaming (unlikely for videos now)
             previewContent.innerHTML = `
                 <div style="text-align: center; background: #000; border-radius: 8px; overflow: hidden;">
                     <video id="previewVideo" controls autoplay playsinline style="max-width: 100%; max-height: 500px; width: 100%;">
