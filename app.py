@@ -655,7 +655,11 @@ def upload_chunk(uid):
     total_chunks = int(request.form.get('total_chunks'))
     filename = secure_filename(request.form.get('filename'))
     content_type = request.form.get('content_type')
+    folder_id = request.form.get('folder_id')
     
+    if not file or not upload_id:
+        return jsonify({'message': 'Missing data'}), 400
+
     # Store chunks in a subfolder named by upload_id
     chunk_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'chunks', upload_id)
     os.makedirs(chunk_dir, exist_ok=True)
@@ -669,13 +673,18 @@ def upload_chunk(uid):
     # Check if this was the last chunk
     parts = [f for f in os.listdir(chunk_dir) if f.endswith('.part')]
     
-    if len(parts) == total_chunks:
+    if len(parts) >= total_chunks:
         # Use a global lock to prevent multiple threads from assembling the same file
         with assembly_lock:
             # Re-check if assembly is still needed (another thread might have finished it)
             if not os.path.exists(chunk_dir):
-                return jsonify({'message': 'Upload Complete (Assembled by another thread)', 'id': None}), 200
+                return jsonify({'message': 'Upload Complete', 'id': None}), 200
             
+            # Double check all chunks exist
+            current_parts = os.listdir(chunk_dir)
+            if len(current_parts) < total_chunks:
+                return jsonify({'message': f'Waiting for {total_chunks - len(current_parts)} more chunks'}), 200
+
             log_error(f"Assembling {total_chunks} chunks for {filename} (Upload: {upload_id})")
             
             u_dir = os.path.join(app.config['UPLOAD_FOLDER'], str(uid))
@@ -698,7 +707,7 @@ def upload_chunk(uid):
                             
                         with open(p, 'rb') as f_in:
                             while True:
-                                chunk_data = f_in.read(CHUNK_SIZE)
+                                chunk_data = f_in.read(1024 * 1024) # 1MB buffer for assembly
                                 if not chunk_data: break
                                 sha256_hash.update(chunk_data)
                                 size += len(chunk_data)
@@ -708,12 +717,15 @@ def upload_chunk(uid):
                         try: os.remove(p)
                         except: pass
                 
-                f_out.write(enc.finalize())
+                    f_out.write(enc.finalize())
                 
                 # Clean up empty chunk directory
                 try: shutil.rmtree(chunk_dir)
                 except: pass
                 
+                if size == 0:
+                    raise Exception("Assembled file is empty")
+
                 file_hash = sha256_hash.hexdigest()
                 log_error(f"Assembly complete: {filename}, Size: {size}, Hash: {file_hash}")
                 
@@ -726,13 +738,16 @@ def upload_chunk(uid):
                     if existing:
                         # Deduplicate: use existing file on disk
                         os.remove(final_path)
-                        stored_name, existing_path, existing_iv, hls_path = existing
-                        cursor.execute('INSERT INTO files (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, hls_path, file_hash) VALUES (?,?,?,?,?,?,?,?,?,?)',
-                                     (uid, filename, stored_name, size, content_type, existing_path, 1, existing_iv, hls_path, file_hash))
+                        cursor.execute('''INSERT INTO files 
+                                       (user_id, folder_id, filename, stored_filename, size, type, path, is_encrypted, iv, hls_path, file_hash) 
+                                       VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+                                     (uid, folder_id, filename, existing[0], size, content_type, existing[1], 1, existing[2], existing[3], file_hash))
                     else:
                         # New file
-                        cursor.execute('INSERT INTO files (user_id, filename, stored_filename, size, type, path, is_encrypted, iv, file_hash) VALUES (?,?,?,?,?,?,?,?,?)',
-                                     (uid, filename, stored_name, size, content_type, final_path, 1, base64.b64encode(iv).decode(), file_hash))
+                        cursor.execute('''INSERT INTO files 
+                                       (user_id, folder_id, filename, stored_filename, size, type, path, is_encrypted, iv, file_hash) 
+                                       VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                                     (uid, folder_id, filename, stored_name, size, content_type, final_path, 1, base64.b64encode(iv).decode(), file_hash))
                     
                     fid = cursor.lastrowid
                     conn.commit()
@@ -744,15 +759,15 @@ def upload_chunk(uid):
                         threading.Thread(target=convert_to_hls, args=(fid, uid, p_to_conv, filename, iv_to_use)).start()
                     
                     resp = jsonify({'message': 'Upload Complete', 'id': fid})
-                resp.headers['Connection'] = 'close'
-                return resp, 201
-            finally:
-                cursor.close(); conn.close()
-                
-        except Exception as e:
-            if os.path.exists(final_path): os.remove(final_path)
-            log_error(f"Assembly failed for {filename}", e)
-            return jsonify({'message': f'Assembly failed: {str(e)}'}), 500
+                    resp.headers['Connection'] = 'close'
+                    return resp, 201
+                finally:
+                    cursor.close(); conn.close()
+                    
+            except Exception as e:
+                if os.path.exists(final_path): os.remove(final_path)
+                log_error(f"Assembly failed for {filename}", e)
+                return jsonify({'message': f'Assembly failed: {str(e)}'}), 500
             
     return jsonify({'message': f'Chunk {chunk_index} accepted'}), 200
 
