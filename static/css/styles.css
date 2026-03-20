@@ -875,6 +875,35 @@ body {
     }
 }
 
+/* Mobile Navigation Overlay */
+#mobileNav {
+    display: none;
+    position: fixed;
+    top: 70px;
+    left: 0;
+    width: 100%;
+    background: #0f172a;
+    padding: 24px;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 1000;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+}
+
+#mobileNav a {
+    color: white !important;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+#mobileNav .btn {
+    margin-top: 8px;
+}
+
 @media (max-width: 992px) {
     .desktop-nav { display: none !important; }
     .mobile-menu-btn { display: block !important; }
