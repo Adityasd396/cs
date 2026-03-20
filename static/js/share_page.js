@@ -113,7 +113,7 @@ function renderPreview() {
             const hlsUrl = `${window.location.origin}/hls/${shareData.hls_path}`;
             previewContainer.innerHTML = `
                 <div style="text-align: center; width: 100%; background: #000; overflow: hidden; position: relative;">
-                    <video id="previewVideo" controls autoplay muted playsinline 
+                    <video id="previewVideo" controls autoplay muted playsinline crossorigin="anonymous"
                            style="max-width: 100%; max-height: 600px; width: 100%; display: block; margin: 0 auto;"></video>
                     <div id="videoBadge" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 10px; pointer-events: none;">HLS STREAMING</div>
                 </div>
@@ -122,19 +122,21 @@ function renderPreview() {
             const video = document.getElementById('previewVideo');
             
             // Hls.js support (Chrome/Firefox/Safari Desktop)
-            // Prefer Hls.js even if native support is present for better VOD seeking/buffering
             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                 const hls = new Hls({
                     enableWorker: true,
                     lowLatencyMode: false,
                     backBufferLength: 300,
-                    maxBufferLength: 120,
-                    maxMaxBufferLength: 600, // Preload up to 10 minutes if possible
-                    maxBufferSize: 250 * 1024 * 1024, // 250MB buffer
-                    appendErrorMaxRetry: 10,
+                    maxBufferLength: 600, // 10 minutes buffer
+                    maxMaxBufferLength: 1200, // 20 minutes max buffer
+                    maxBufferSize: 500 * 1024 * 1024, // 500MB buffer
+                    appendErrorMaxRetry: 20,
                     startLevel: -1,
                     capLevelToPlayerSize: true,
-                    progressive: true // Better for smooth playback
+                    progressive: true,
+                    xhrSetup: function(xhr, url) {
+                        xhr.withCredentials = false; // Important for some CDNs/CORS
+                    }
                 });
                 
                 hls.loadSource(hlsUrl);
@@ -174,7 +176,7 @@ function renderPreview() {
             previewContainer.innerHTML = `
                 <div style="text-align: center; width: 100%; background: #000; overflow: hidden; position: relative;">
                     <video id="previewVideo" controls autoplay muted playsinline 
-                           preload="auto"
+                           preload="auto" crossorigin="anonymous"
                            controlslist="nodownload" oncontextmenu="return false;"
                            style="max-width: 100%; max-height: 600px; width: 100%; display: block; margin: 0 auto;" 
                            poster="">
