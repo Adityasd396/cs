@@ -5,6 +5,45 @@ if (typeof API_URL === 'undefined') {
     window.API_URL = '/api';
 }
 
+// Mobile Navigation Toggle
+function toggleMobileNav() {
+    const nav = document.getElementById('mobileNav');
+    if (nav) {
+        nav.style.display = (nav.style.display === 'flex' || nav.style.display === '') ? 'none' : 'flex';
+    }
+}
+
+// Inject Mobile Menu for Landing Page if missing
+document.addEventListener('DOMContentLoaded', () => {
+    const isLandingPage = document.querySelector('.hero') !== null;
+    if (isLandingPage && !document.getElementById('mobileNav')) {
+        const header = document.querySelector('.header-landing') || document.querySelector('header');
+        if (header) {
+            // Add hamburger button if missing
+            if (!document.querySelector('.mobile-menu-btn')) {
+                const btn = document.createElement('button');
+                btn.className = 'mobile-menu-btn';
+                btn.innerHTML = '☰';
+                btn.onclick = toggleMobileNav;
+                header.querySelector('.container').appendChild(btn);
+            }
+
+            // Create mobile nav overlay
+            const mobileNav = document.createElement('div');
+            mobileNav.id = 'mobileNav';
+            mobileNav.innerHTML = `
+                <a href="#how-it-works" onclick="toggleMobileNav()">How It Works</a>
+                <a href="#features" onclick="toggleMobileNav()">Features</a>
+                <a href="#earnings" onclick="toggleMobileNav()">Earnings</a>
+                <hr style="border:0;border-top:1px solid rgba(255,255,255,0.1);margin:8px 0;">
+                <button class="btn-outline-white" onclick="openModal('login');toggleMobileNav()" style="width:100%;">Login</button>
+                <button class="btn btn-primary" onclick="openModal('signup');toggleMobileNav()" style="width:100%;margin-top:10px;">Start Earning</button>
+            `;
+            header.appendChild(mobileNav);
+        }
+    }
+});
+
 async function handleLogin() {
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;

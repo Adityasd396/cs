@@ -66,15 +66,22 @@ async function uploadFile() {
     let failCount = 0;
 
     const CHUNK_SIZE = 20 * 1024 * 1024; // 20MB chunks
-    const MAX_PARALLEL_CHUNKS = 2; // Upload 2 chunks at a time
+    const MAX_PARALLEL_CHUNKS = 4; // Increased from 2 for faster uploads
+    const MAX_RETRIES = 3; // Retry failed chunks
 
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-        const uploadId = crypto.randomUUID();
-        let uploadedChunks = 0;
+        if (file.size === 0) {
+            showNotification(`Skipping empty file: ${file.name}`, 'error');
+            continue;
+        }
 
-        const uploadChunk = async (chunkIndex) => {
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+        let uploadedChunks = 0;
+        let chunkProgress = {}; // Track progress of each chunk
+
+        const uploadChunk = async (chunkIndex, retryCount = 0) => {
             const start = chunkIndex * CHUNK_SIZE;
             const end = Math.min(start + CHUNK_SIZE, file.size);
             const chunk = file.slice(start, end);
@@ -90,43 +97,65 @@ async function uploadFile() {
 
             return new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
+                
                 xhr.upload.addEventListener('progress', (e) => {
-                    if (e.lengthComputable && chunkIndex === totalChunks - 1) { // Only track last chunk for overall progress feel
-                        const overallPercent = ((uploadedChunks / totalChunks) * 100);
+                    if (e.lengthComputable) {
+                        chunkProgress[chunkIndex] = e.loaded;
+                        
+                        // Calculate total progress accurately
+                        let totalUploaded = Object.values(chunkProgress).reduce((a, b) => a + b, 0);
+                        const overallPercent = Math.min(Math.round((totalUploaded / file.size) * 100), 99);
+                        
                         progressFill.style.width = overallPercent + '%';
-                        progressText.textContent = `Uploading ${i + 1}/${files.length}: ${Math.round(overallPercent)}%`;
+                        progressText.textContent = `Uploading ${i + 1}/${files.length}: ${overallPercent}%`;
                     }
                 });
 
                 xhr.addEventListener('load', () => {
                     if (xhr.status === 201 || xhr.status === 200) {
                         uploadedChunks++;
-                        const overallPercent = ((uploadedChunks / totalChunks) * 100);
-                        progressFill.style.width = overallPercent + '%';
+                        chunkProgress[chunkIndex] = end - start; // Ensure it's fully marked as uploaded
                         
                         if (uploadedChunks === totalChunks) {
+                            progressFill.style.width = '100%';
                             progressText.textContent = `Processing ${i + 1}/${files.length}: Finalizing on server...`;
-                        } else {
-                            progressText.textContent = `Uploading ${i + 1}/${files.length}: ${Math.round(overallPercent)}%`;
                         }
                         resolve();
                     } else {
-                        reject(new Error(`Chunk ${chunkIndex} failed`));
+                        if (retryCount < MAX_RETRIES) {
+                            console.warn(`Chunk ${chunkIndex} failed, retrying... (${retryCount + 1}/${MAX_RETRIES})`);
+                            setTimeout(() => resolve(uploadChunk(chunkIndex, retryCount + 1)), 1000);
+                        } else {
+                            reject(new Error(`Chunk ${chunkIndex} failed after ${MAX_RETRIES} retries`));
+                        }
                     }
                 });
-                xhr.addEventListener('error', () => reject(new Error('Network error')));
+
+                xhr.addEventListener('error', () => {
+                    if (retryCount < MAX_RETRIES) {
+                        setTimeout(() => resolve(uploadChunk(chunkIndex, retryCount + 1)), 1000);
+                    } else {
+                        reject(new Error('Network error'));
+                    }
+                });
+
                 xhr.open('POST', `${API_URL}/files/upload/chunk`);
                 xhr.setRequestHeader('Authorization', `Bearer ${token}`);
                 xhr.send(formData);
             });
         };
 
-        // Parallel chunk processing
+        // Parallel chunk processing with accurate progress tracking
         const queue = Array.from({ length: totalChunks }, (_, i) => i);
         const workers = Array(Math.min(MAX_PARALLEL_CHUNKS, totalChunks)).fill(null).map(async () => {
             while (queue.length > 0) {
                 const chunkIndex = queue.shift();
-                await uploadChunk(chunkIndex);
+                try {
+                    await uploadChunk(chunkIndex);
+                } catch (e) {
+                    queue.length = 0; // Stop further chunks if one fails completely
+                    throw e;
+                }
             }
         });
 
