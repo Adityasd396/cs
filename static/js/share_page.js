@@ -126,24 +126,24 @@ function renderPreview() {
                 const hls = new Hls({
                     enableWorker: true,
                     lowLatencyMode: false,
-                    backBufferLength: 300,
-                    maxBufferLength: 600, // 10 minutes buffer
-                    maxMaxBufferLength: 1200, // 20 minutes max buffer
-                    maxBufferSize: 500 * 1024 * 1024, // 500MB buffer
-                    appendErrorMaxRetry: 20,
+                    backBufferLength: 60,
+                    maxBufferLength: 30, // 30s initial buffer
+                    maxMaxBufferLength: 120, // 2m max buffer
+                    maxBufferSize: 60 * 1024 * 1024, // 60MB max buffer
+                    appendErrorMaxRetry: 10,
                     startLevel: -1,
                     capLevelToPlayerSize: true,
                     progressive: true,
                     xhrSetup: function(xhr, url) {
-                        xhr.withCredentials = false; // Important for some CDNs/CORS
+                        xhr.withCredentials = false;
                     }
                 });
                 
                 hls.loadSource(hlsUrl);
                 hls.attachMedia(video);
                 
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    console.log('HLS.js: Manifest parsed - seeking enabled');
+                hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
+                    console.log('HLS.js: Manifest parsed - Duration:', video.duration);
                     video.play().catch(e => console.warn('Autoplay blocked:', e));
                 });
 
@@ -176,7 +176,7 @@ function renderPreview() {
             previewContainer.innerHTML = `
                 <div style="text-align: center; width: 100%; background: #000; overflow: hidden; position: relative;">
                     <video id="previewVideo" controls autoplay muted playsinline 
-                           preload="auto" crossorigin="anonymous"
+                           preload="metadata" crossorigin="anonymous"
                            controlslist="nodownload" oncontextmenu="return false;"
                            style="max-width: 100%; max-height: 600px; width: 100%; display: block; margin: 0 auto;" 
                            poster="">

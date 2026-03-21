@@ -338,15 +338,14 @@ function openPreviewModal(fileId, filename, mimeType, hlsPath) {
                 const hls = new Hls({
                     enableWorker: true,
                     lowLatencyMode: false,
-                    backBufferLength: 300,
-                    maxBufferLength: 600,
-                    maxMaxBufferLength: 1200,
-                    maxBufferSize: 500 * 1024 * 1024,
-                    appendErrorMaxRetry: 20,
+                    backBufferLength: 60,
+                    maxBufferLength: 30,
+                    maxMaxBufferLength: 120,
+                    maxBufferSize: 60 * 1024 * 1024,
+                    appendErrorMaxRetry: 10,
                     startLevel: -1,
                     capLevelToPlayerSize: true,
-                    progressive: true,
-                    testBandwidth: false
+                    progressive: true
                 });
                 hls.loadSource(hlsUrl);
                 hls.attachMedia(video);
