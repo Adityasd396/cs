@@ -129,18 +129,23 @@ class DecryptedFileAdapter:
         block_index = self.pos // 16
         offset_in_block = self.pos % 16
         
-        # Always re-init for every read to ensure sync between file and cipher state
-        self._init_cipher(block_index)
+        # Re-init ONLY if we have jumped or just started
+        if self.current_block_index != block_index:
+            self._init_cipher(block_index)
+            self.f.seek(block_index * 16)
+            # Handle non-block-aligned start
+            if offset_in_block > 0:
+                prefix = self.f.read(offset_in_block)
+                if prefix: self.decryptor.update(prefix)
         
-        # Seek and read block-aligned data
-        self.f.seek(block_index * 16)
-        raw_data = self.f.read(size + offset_in_block)
+        # Now read the requested data
+        raw_data = self.f.read(size)
         if not raw_data: return b""
         
-        decrypted = self.decryptor.update(raw_data)
-        result = decrypted[offset_in_block:offset_in_block + size]
-        
+        result = self.decryptor.update(raw_data)
         self.pos += len(result)
+        # Update current block index for next sequential read
+        self.current_block_index = self.pos // 16
         return result
 
     def seek(self, offset, whence=os.SEEK_SET):
@@ -289,6 +294,7 @@ def convert_to_hls(file_id, current_user_id, filepath, original_filename, iv_bas
                 '-hls_flags', 'independent_segments+discont_start',
                 '-hls_playlist_type', 'vod',
                 '-hls_allow_cache', '1',
+                '-hls_segment_filename', os.path.join(hls_output_dir, "segment%03d.ts"),
                 '-f', 'hls', playlist_path
             ]
             
